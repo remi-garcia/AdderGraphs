@@ -65,6 +65,9 @@ function get_input_wordlengths(addernode::AdderNode, wordlength_in::Int) #TODO t
     return get_adder_wordlength.(get_input_addernodes(addernode), wordlength_in)
 end
 
+function get_input_depths(addernode::AdderNode)
+    return get_depth.(get_input_addernodes(addernode))
+end
 
 function set_truncations!(addernode::AdderNode, truncations::Vector{Int})
     input_edges = get_input_edges(addernode)

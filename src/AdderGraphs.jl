@@ -109,6 +109,8 @@ export produce_addernode
 export get_depth
 export set_stage!
 export get_adder_wordlength
+export get_input_wordlengths
+export get_input_depths
 
 
 
