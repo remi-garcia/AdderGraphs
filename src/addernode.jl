@@ -49,10 +49,10 @@ function compute_nb_onebit_adders(addernode::AdderNode, wordlength_in::Int)
     inputs_signed = are_negative_inputs(addernode)
     inputs_shifts = get_input_shifts(addernode)
     inputs_truncations = get_truncations(addernode)
-    inputs_wl = round.(Int, log2.(get_input_addernode_values(addernode) * (2^wordlength_in - 1)), RoundUp)
+    inputs_wl = get_input_wordlengths(addernode)
     @assert length(inputs_signed) == 2
     @assert length(inputs_shifts) == 2
-    current_wl = round(Int, log2(get_value(addernode) * (2^wordlength_in - 1)), RoundUp)
+    current_wl = get_adder_wordlength(addernode)
     return current_wl - min(0, minimum(inputs_shifts)) - ((current_wl > maximum(inputs_wl + inputs_shifts) ? 1 : 0) + max(inputs_signed[2] ? 0 : inputs_truncations[1] + inputs_shifts[1], inputs_signed[1] ? 0 : inputs_truncations[2] + inputs_shifts[2]))
 end
 
@@ -133,7 +133,19 @@ end
 function get_nb_registers(addernode::AdderNode, addergraph::AdderGraph)
     depth_addernode = get_depth(addernode)
     if get_value(addernode) in odd.(abs.(get_outputs(addergraph)))
-        return max(0, get_adder_depth(addergraph)-depth_addernode)+1-same_adders(addernode, get_origin(addergraph))
+        is_used_as_output = true
+        current_depth = get_depth(addernode)
+        current_value = get_value(addernode)
+        for other_addernode in get_nodes(addergraph)
+            if get_value(other_addernode) == current_value
+                if get_depth(other_addernode) > current_depth
+                    is_used_as_output = false    
+                end
+            end
+        end
+        if is_used_as_output
+            return max(0, get_adder_depth(addergraph)-depth_addernode)+1-same_adders(addernode, get_origin(addergraph))
+        end
     end
     nb_registers = 0
     for other_addernode in get_nodes(addergraph)
@@ -149,6 +161,6 @@ end
 
 function get_nb_register_bits(addernode::AdderNode, wordlength_in::Int, addergraph::AdderGraph)
     nb_registers = get_nb_registers(addernode, addergraph)
-    nb_bits = round(Int, log2(get_value(addernode) * (2^wordlength_in - 1)), RoundUp)
+    nb_bits = get_adder_wordlength(addernode)
     return nb_registers*nb_bits
 end

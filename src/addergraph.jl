@@ -46,10 +46,10 @@ function compute_total_nb_onebit_adders(addergraph::AdderGraph, wordlength_in::I
 end
 
 
-function compute_all_nb_onebit_adders(addergraph::AdderGraph, wordlength_in::Int)::Dict{Int, Int}
-    all_nb_onebit_adders = Dict{Int, Int}()
+function compute_all_nb_onebit_adders(addergraph::AdderGraph, wordlength_in::Int)::Dict{Tuple{Int, Int}, Int}
+    all_nb_onebit_adders = Dict{Tuple{Int, Int}, Int}()
     for addernode in get_nodes(addergraph)
-        all_nb_onebit_adders[get_value(addernode)] = compute_nb_onebit_adders(addernode, wordlength_in)
+        all_nb_onebit_adders[(get_value(addernode), get_depth(addernode))] = compute_nb_onebit_adders(addernode, wordlength_in)
     end
     return all_nb_onebit_adders
 end
