@@ -49,10 +49,10 @@ function compute_nb_onebit_adders(addernode::AdderNode, wordlength_in::Int)
     inputs_signed = are_negative_inputs(addernode)
     inputs_shifts = get_input_shifts(addernode)
     inputs_truncations = get_truncations(addernode)
-    inputs_wl = get_input_wordlengths(addernode)
+    inputs_wl = get_input_wordlengths(addernode, wordlength_in)
     @assert length(inputs_signed) == 2
     @assert length(inputs_shifts) == 2
-    current_wl = get_adder_wordlength(addernode)
+    current_wl = get_adder_wordlength(addernode, wordlength_in)
     return current_wl - min(0, minimum(inputs_shifts)) - ((current_wl > maximum(inputs_wl + inputs_shifts) ? 1 : 0) + max(inputs_signed[2] ? 0 : inputs_truncations[1] + inputs_shifts[1], inputs_signed[1] ? 0 : inputs_truncations[2] + inputs_shifts[2]))
 end
 
@@ -62,7 +62,7 @@ function get_adder_wordlength(addernode::AdderNode, wordlength_in::Int) #TODO ta
 end
 
 function get_input_wordlengths(addernode::AdderNode, wordlength_in::Int) #TODO take truncations/errors into account
-    return get_adder_wordlength.(get_input_addernodes(addernode))
+    return get_adder_wordlength.(get_input_addernodes(addernode), wordlength_in)
 end
 
 
@@ -139,7 +139,7 @@ function get_nb_registers(addernode::AdderNode, addergraph::AdderGraph)
         for other_addernode in get_nodes(addergraph)
             if get_value(other_addernode) == current_value
                 if get_depth(other_addernode) > current_depth
-                    is_used_as_output = false    
+                    is_used_as_output = false
                 end
             end
         end
@@ -161,6 +161,6 @@ end
 
 function get_nb_register_bits(addernode::AdderNode, wordlength_in::Int, addergraph::AdderGraph)
     nb_registers = get_nb_registers(addernode, addergraph)
-    nb_bits = get_adder_wordlength(addernode)
+    nb_bits = get_adder_wordlength(addernode, wordlength_in)
     return nb_registers*nb_bits
 end

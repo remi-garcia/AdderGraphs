@@ -418,6 +418,19 @@ function get_adder_depth(addergraph::AdderGraph)
 end
 
 
+function get_output_addernode(addergraph::AdderGraph, output_value::Int)
+    addernode = get_origin(addergraph)
+    for current_addernode in get_nodes(addergraph)
+        if get_value(current_addernode) == odd(abs(output_value))
+            if get_depth(current_addernode) > get_depth(addernode)
+                addernode = current_addernode
+            end
+        end
+    end
+    return addernode
+end
+
+
 function get_nb_registers(addergraph::AdderGraph)
     total_nb_registers = get_nb_registers(get_origin(addergraph), addergraph)
     for addernode in get_nodes(addergraph)
