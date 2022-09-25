@@ -57,7 +57,7 @@ export InputEdge
 
 include("utils.jl")
 include("inputedge.jl")
-include("truncations_errors")
+include("truncations_errors.jl")
 include("registers.jl")
 include("addernode.jl")
 include("addergraph.jl")
