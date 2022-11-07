@@ -1,0 +1,3 @@
+- compute_nb_onebit_adders should take into account leading zeros
+- vhdl generation: sign should be separated for lower cost
+- get_adder_wordlength: need to take errors into account

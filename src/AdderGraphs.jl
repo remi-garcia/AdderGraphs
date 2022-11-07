@@ -61,6 +61,7 @@ include("truncations_errors.jl")
 include("registers.jl")
 include("addernode.jl")
 include("addergraph.jl")
+include("vhdl.jl")
 
 # Utils
 export odd
@@ -115,6 +116,8 @@ export get_adder_wordlength
 export get_input_wordlengths
 export get_input_depths
 
-
+# VHDL
+export addergraph_generation
+export write_vhdl
 
 end # module
