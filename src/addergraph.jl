@@ -117,6 +117,15 @@ end
 
 
 function write_addergraph(addergraph::AdderGraph; pipeline::Bool=false, flopoco_format::Bool=true)
+    adderstring = ""
+    if flopoco_format
+        adderstring *= "graph=\"{"
+    else
+        adderstring *= "{"
+    end
+    if isempty(addergraph)
+        return adderstring*"}"
+    end
     maximum_depth = maximum(get_depth.(get_nodes(addergraph)))
     use_depth_by_value = Dict{Int, Vector{Int}}([val => Vector{Int}() for val in get_value.(get_nodes(addergraph))])
     use_depth_by_value[1] = Vector{Int}()
@@ -158,12 +167,6 @@ function write_addergraph(addergraph::AdderGraph; pipeline::Bool=false, flopoco_
         end
     end
     output_values = Vector{Int}()
-    adderstring = ""
-    if flopoco_format
-        adderstring *= "graph=\"{"
-    else
-        adderstring *= "{"
-    end
     firstcoefnocomma = true
     coefficients = get_outputs(addergraph)
     for coefind in 1:length(coefficients)
