@@ -20,7 +20,7 @@ function entity_naming(addernode::AdderNode)
 end
 
 function entity_naming(addergraph::AdderGraph)
-    return "Addergraph_$(join(get_outputs(addergraph), "_"))"
+    return "Addergraph_$(join(output_naming.(get_outputs(addergraph)), "_"))"
 end
 
 function output_naming(output_value::Int)
@@ -42,6 +42,7 @@ function adder_generation(
         target_frequency::Int=400,
         verbose::Bool=false
     )
+    port_names = adder_port_names()
     vhdl_str = """
     --------------------------------------------------------------------------------
     --                      $(entity_naming(addernode))
@@ -49,8 +50,8 @@ function adder_generation(
     -- Authors: Rémi Garcia
     --------------------------------------------------------------------------------
     -- Target frequency (MHz): $(target_frequency)
-    -- Input signals: $(adder_port_names()[1]) $(adder_port_names()[2])
-    -- Output signals: $(adder_port_names()[3])
+    -- Input signals: $(port_names[1]) $(port_names[2])
+    -- Output signals: $(port_names[3])
 
     library ieee;
     use ieee.std_logic_1164.all;
@@ -101,7 +102,6 @@ function adder_generation(
     port_str = "port (\n"
     # vhdl_str *= "\t\tclk : in std_logic;"
     # vhdl_str *= " -- Clock\n"
-    port_names = adder_port_names()
     port_str *= "\t\t$(port_names[1]) : in std_logic_vector($(input_wls[1]-1) downto 0);"
     port_str *= " -- Left input\n"
     port_str *= "\t\t$(port_names[2]) : in std_logic_vector($(input_wls[2]-1) downto 0);"
@@ -218,9 +218,13 @@ function vhdl_addergraph_generation(
         addergraph::AdderGraph;
         wordlength_in::Int, pipeline::Bool=false,
         pipeline_inout::Bool=false,
+        with_clk::Bool=true,
         target_frequency::Int=400,
         verbose::Bool=false
     )
+    if pipeline || pipeline_inout
+        with_clk = true
+    end
     if get_adder_depth(addergraph) <= 1
         verbose && pipeline && println("WARNING: Pipeline not necessary for AD=$(get_adder_depth(addergraph))")
         pipeline = false
@@ -243,7 +247,7 @@ function vhdl_addergraph_generation(
     -- Authors: Rémi Garcia
     --------------------------------------------------------------------------------
     -- Target frequency (MHz): $(target_frequency)
-    -- Input signals: clk input_x
+    -- Input signals: $(with_clk ? "clk " : "")input_x
     -- Output signals: $(join([output_naming(output_value) for output_value in output_values], " "))
 
     library ieee;
@@ -262,10 +266,12 @@ function vhdl_addergraph_generation(
     entity $(entity_name) is
         port (
     """
-    # Always provide input clock for correct power results
+    # Always provide input clock for correct power results with flopoco script
     # if pipeline
+    if with_clk
         vhdl_str *= "\t\tclk : in std_logic;"
         vhdl_str *= " -- Clock\n"
+    end
     # end
     vhdl_str *= "\t\tinput_x : in std_logic_vector($(wordlength_in-1) downto 0);"
     vhdl_str *= " -- Input\n"

@@ -250,7 +250,7 @@ function _evaluate(addergraph::AdderGraph, input_value::Int; wlIn::Int, apply_in
     for addernode in get_nodes(addergraph)
         nodes_value[get_value(addernode)] = evaluate_node(addernode, [nodes_value[get_input_addernode_values(addernode)[i]] for i in 1:length(get_input_addernodes(addernode))], wlIn=wlIn, apply_truncations=apply_internal_truncations, verbose=verbose)
     end
-    output_values = Dict{Int, Int}([output_value => nodes_value[odd(abs(output_value))]*2^(log2odd(abs(output_value))) for output_value in get_outputs(addergraph)])
+    output_values = Dict{Int, Int}([output_value => nodes_value[odd(abs(output_value))]*2^(log2odd(abs(output_value)))*sign(output_value) for output_value in get_outputs(addergraph)])
     return (nodes_value, output_values)
 end
 
