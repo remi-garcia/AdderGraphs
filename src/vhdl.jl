@@ -15,6 +15,14 @@ function signal_wl(addernode::AdderNode, wordlength_in::Int)
     return (signal_input_left, signal_input_right, signal_output)
 end
 
+function output_naming(output_value::Int)
+    return "o$(output_value < 0 ? "minus" : "")$(abs(output_value))"
+end
+
+function signal_output_naming(output_value::Int)
+    return "x_$(output_naming(output_value))"
+end
+
 function entity_naming(addernode::AdderNode)
     return "Addernode_$(get_value(addernode))_$(get_depth(addernode))"
 end
@@ -23,12 +31,8 @@ function entity_naming(addergraph::AdderGraph)
     return "Addergraph_$(join(output_naming.(get_outputs(addergraph)), "_"))"
 end
 
-function output_naming(output_value::Int)
-    return "o$(output_value < 0 ? "minus" : "")$(abs(output_value))"
-end
-
-function signal_output_naming(output_value::Int)
-    return "x_$(output_naming(output_value))"
+function entity_naming(outputs::Vector{Int})
+    return "Outputs_$(join(output_naming.(outputs), "_"))"
 end
 
 function adder_port_names()
@@ -43,9 +47,10 @@ function adder_generation(
         verbose::Bool=false
     )
     port_names = adder_port_names()
+    entity_name = entity_naming(addernode)
     vhdl_str = """
     --------------------------------------------------------------------------------
-    --                      $(entity_naming(addernode))
+    --                      $(entity_name)
     -- VHDL generated for Kintex7 @ $(target_frequency)MHz
     -- Authors: Rémi Garcia
     --------------------------------------------------------------------------------
@@ -94,7 +99,6 @@ function adder_generation(
     -- $(input_depths[1]) and $(input_depths[2])
     """
 
-    entity_name = entity_naming(addernode)
     vhdl_str *= """
     entity $(entity_name) is
     """
@@ -240,9 +244,10 @@ function vhdl_addergraph_generation(
         vhdl_str *= "\n\n\n"
     end
 
+    entity_name = entity_naming(addergraph)
     vhdl_str *= """
     --------------------------------------------------------------------------------
-    --                      $(entity_naming(addergraph))
+    --                      $(entity_name)
     -- VHDL generated for Kintex7 @ $(target_frequency)MHz
     -- Authors: Rémi Garcia
     --------------------------------------------------------------------------------
@@ -261,7 +266,6 @@ function vhdl_addergraph_generation(
     -- Generation of addergraph
     """
 
-    entity_name = entity_naming(addergraph)
     vhdl_str *= """
     entity $(entity_name) is
         port (
@@ -541,13 +545,142 @@ function vhdl_addergraph_generation(
 end
 
 
+
+
+function vhdl_output_products(
+        addergraph::AdderGraph;
+        wordlength_in::Int,
+        pipeline_inout::Bool=false,
+        with_clk::Bool=true,
+        target_frequency::Int=400,
+        force_dsp::Bool=false,
+        verbose::Bool=false
+    )
+    if pipeline_inout
+        with_clk = true
+    end
+    output_values = unique(get_outputs(addergraph))
+    entity_name = entity_naming(output_values)
+
+    vhdl_str = """
+    --------------------------------------------------------------------------------
+    --                      $(entity_name)
+    -- VHDL generated for Kintex7 @ $(target_frequency)MHz
+    -- Authors: Rémi Garcia
+    --------------------------------------------------------------------------------
+    -- Target frequency (MHz): $(target_frequency)
+    -- Input signals: $(with_clk ? "clk " : "")input_x
+    -- Output signals: $(join([output_naming(output_value) for output_value in output_values], " "))
+
+    library ieee;
+    use ieee.std_logic_1164.all;
+    use ieee.numeric_std.all;
+    library std;
+    """
+
+    # Entity
+    vhdl_str *= """
+    -- Generation of output products
+    """
+
+    vhdl_str *= """
+    entity $(entity_name) is
+        port (
+    """
+    # Always provide input clock for correct power results with flopoco script
+    # if pipeline
+    if with_clk
+        vhdl_str *= "\t\tclk : in std_logic;"
+        vhdl_str *= " -- Clock\n"
+    end
+    # end
+    vhdl_str *= "\t\tinput_x : in std_logic_vector($(wordlength_in-1) downto 0);"
+    vhdl_str *= " -- Input\n"
+    if length(output_values) >= 2
+        for output_value in output_values[1:(end-1)]
+            output_name = output_naming(output_value)
+            addernode = get_output_addernode(addergraph, output_value)
+            vhdl_str *= "\t\t$(output_name): out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);"
+            vhdl_str *= " -- Output $(output_value)\n"
+        end
+    end
+    output_value = output_values[end]
+    output_name = output_naming(output_value)
+    addernode = get_output_addernode(addergraph, output_value)
+    vhdl_str *= "\t\t$(output_name): out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0)"
+    vhdl_str *= " -- Output $(output_value)\n"
+    vhdl_str *= "\t);\n"
+    vhdl_str *= "end entity;\n"
+    vhdl_str *= "\n"
+
+    # Architecture
+    vhdl_str *= """
+    architecture arch of $(entity_name) is
+    """
+
+    signal_input_name = "x_in"
+    signal_input_wl = wordlength_in
+    vhdl_str *= "signal $(signal_input_name) : std_logic_vector($(signal_input_wl-1) downto 0);\n"
+
+    for output_value in output_values
+        addernode = get_output_addernode(addergraph, output_value)
+        output_name = signal_output_naming(output_value)
+        vhdl_str *= "signal $(output_name) : std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);\n"
+    end
+
+    if force_dsp
+        vhdl_str *= "attribute use_dsp : string;\n"
+        for output_value in output_values
+            output_name = signal_output_naming(output_value)
+            vhdl_str *= "attribute use_dsp of $(output_name) : signal is \"yes\";\n"
+        end
+    end
+
+    vhdl_str *= "\nbegin\n"
+    if !pipeline_inout
+        vhdl_str *= "\t$(signal_input_name) <= input_x;\n"
+        for output_value in output_values
+            vhdl_str *= "\t$(output_naming(output_value)) <= $(signal_output_naming(output_value));\n"
+        end
+    else
+        # https://stackoverflow.com/questions/9989913/vhdl-how-to-use-clk-and-reset-in-process
+        # https://vhdlguru.blogspot.com/2011/01/what-is-pipelining-explanation-with.html
+        # Register to signals at clk
+        vhdl_str *= "\t-- Add registers for pipelining\n"
+        vhdl_str *= "\tprocess(clk)\n"
+        vhdl_str *= "\tbegin\n"
+        vhdl_str *= "\t\tif(rising_edge(clk)) then\n"
+        vhdl_str *= "\t\t\t$(signal_input_name) <= input_x;\n"
+        for output_value in output_values
+            vhdl_str *= "\t\t\t$(output_naming(output_value)) <= $(signal_output_naming(output_value));\n"
+        end
+        vhdl_str *= "\t\tend if;\n"
+        vhdl_str *= "\tend process;\n"
+    end
+
+    for output_value in output_values
+        addernode = get_output_addernode(addergraph, output_value)
+        vhdl_str *= "\t$(signal_output_naming(output_value)) <= std_logic_vector(to_signed($(output_value)*to_integer(signed($signal_input_name)), $(get_adder_wordlength(addernode, wordlength_in))));\n"
+    end
+
+    vhdl_str *= "end architecture;\n"
+
+    return vhdl_str
+end
+
+
 function write_vhdl(
         addergraph::AdderGraph;
         vhdl_filename::String="addergraph.vhdl",
+        no_addergraph::Bool=false,
         verbose::Bool=false,
         kwargs...
     )
-    vhdl_str = vhdl_addergraph_generation(addergraph; verbose=verbose, kwargs...)
+    if !no_addergraph
+        vhdl_str = vhdl_addergraph_generation(addergraph; verbose=verbose, kwargs...)
+    else
+        vhdl_str = vhdl_output_products(addergraph; verbose=verbose, kwargs...)
+    end
     open(vhdl_filename, "w") do writefile
         write(writefile, vhdl_str)
     end
