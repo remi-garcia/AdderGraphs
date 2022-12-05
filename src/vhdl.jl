@@ -560,7 +560,7 @@ function vhdl_output_products(
         with_clk = true
     end
     output_values = unique(get_outputs(addergraph))
-    entity_name = entity_naming(output_values)
+    entity_name = "Products_"*entity_naming(output_values)
 
     vhdl_str = """
     --------------------------------------------------------------------------------
@@ -669,15 +669,154 @@ function vhdl_output_products(
 end
 
 
+function vhdl_output_tables(
+        addergraph::AdderGraph;
+        wordlength_in::Int,
+        pipeline_inout::Bool=false,
+        with_clk::Bool=true,
+        target_frequency::Int=400,
+        verbose::Bool=false
+    )
+    if pipeline_inout
+        with_clk = true
+    end
+    output_values = unique(get_outputs(addergraph))
+    entity_name = "Tables_"*entity_naming(output_values)
+
+    vhdl_str = """
+    --------------------------------------------------------------------------------
+    --                      $(entity_name)
+    -- VHDL generated for Kintex7 @ $(target_frequency)MHz
+    -- Authors: Rémi Garcia
+    --------------------------------------------------------------------------------
+    -- Target frequency (MHz): $(target_frequency)
+    -- Input signals: $(with_clk ? "clk " : "")input_x
+    -- Output signals: $(join([output_naming(output_value) for output_value in output_values], " "))
+
+    library ieee;
+    use ieee.std_logic_1164.all;
+    use ieee.numeric_std.all;
+    library std;
+    """
+
+    # Entity
+    vhdl_str *= """
+    -- Generation of output LUTs
+    """
+    # https://stackoverflow.com/questions/21976749/design-of-a-vhdl-lut-module
+
+    vhdl_str *= """
+    entity $(entity_name) is
+        port (
+    """
+    # Always provide input clock for correct power results with flopoco script
+    # if pipeline
+    if with_clk
+        vhdl_str *= "\t\tclk : in std_logic;"
+        vhdl_str *= " -- Clock\n"
+    end
+    # end
+    vhdl_str *= "\t\tinput_x : in std_logic_vector($(wordlength_in-1) downto 0);"
+    vhdl_str *= " -- Input\n"
+    if length(output_values) >= 2
+        for output_value in output_values[1:(end-1)]
+            output_name = output_naming(output_value)
+            addernode = get_output_addernode(addergraph, output_value)
+            vhdl_str *= "\t\t$(output_name): out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);"
+            vhdl_str *= " -- Output $(output_value)\n"
+        end
+    end
+    output_value = output_values[end]
+    output_name = output_naming(output_value)
+    addernode = get_output_addernode(addergraph, output_value)
+    vhdl_str *= "\t\t$(output_name): out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0)"
+    vhdl_str *= " -- Output $(output_value)\n"
+    vhdl_str *= "\t);\n"
+    vhdl_str *= "end entity;\n"
+    vhdl_str *= "\n"
+
+    # Architecture
+    vhdl_str *= """
+    architecture arch of $(entity_name) is
+    """
+
+    vhdl_str *= "attribute rom_style : string;\n"
+    signal_input_name = "x_in"
+    signal_input_wl = wordlength_in
+    vhdl_str *= "signal $(signal_input_name) : std_logic_vector($(signal_input_wl-1) downto 0);\n"
+    for output_value in output_values
+        if output_value < 0 && -output_value in output_values
+            continue
+        end
+        wlout = round(Int, log2((2^(wordlength_in) - 1)*abs(output_value)), RoundUp)
+        lut_outputs = Vector{Vector{Bool}}([reverse(digits(abs(output_value)*i, base=2, pad=wlout))[1:wlout] for i in 0:((2^wordlength_in)-1)])
+        addernode = get_output_addernode(addergraph, output_value)
+        output_name = signal_output_naming(abs(output_value))
+        vhdl_str *= """
+        \n\ttype lut_$(output_name) is array (natural range 0 to $(2^(wordlength_in)-1)) of std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);
+        \tsignal bitcount_$(output_name): lut_$(output_name) := (
+        """
+        vhdl_str *= "\t\t"
+        for i in 1:(2^(wordlength_in)-1)
+            vhdl_str *= "\"$(join(Int.(lut_outputs[i])))\", "
+            if mod(i, 4) == 0
+                vhdl_str *= "\n\t\t"
+            end
+        end
+        vhdl_str *= "\"$(join(Int.(lut_outputs[end])))\"\n"
+        vhdl_str *= "\t);\n"
+        vhdl_str *= "attribute rom_style of bitcount_$(output_name) : signal is \"distributed\";\n"
+
+        vhdl_str *= "signal $(signal_output_naming(output_value)) : std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);\n"
+    end
+
+    vhdl_str *= "\nbegin\n"
+    if !pipeline_inout
+        vhdl_str *= "\t$(signal_input_name) <= input_x;\n"
+        for output_value in output_values
+            vhdl_str *= "\t$(output_naming(output_value)) <= $(signal_output_naming(output_value));\n"
+        end
+    else
+        # https://stackoverflow.com/questions/9989913/vhdl-how-to-use-clk-and-reset-in-process
+        # https://vhdlguru.blogspot.com/2011/01/what-is-pipelining-explanation-with.html
+        # Register to signals at clk
+        vhdl_str *= "\t-- Add registers for pipelining\n"
+        vhdl_str *= "\tprocess(clk)\n"
+        vhdl_str *= "\tbegin\n"
+        vhdl_str *= "\t\tif(rising_edge(clk)) then\n"
+        vhdl_str *= "\t\t\t$(signal_input_name) <= input_x;\n"
+        for output_value in output_values
+            vhdl_str *= "\t\t\t$(output_naming(output_value)) <= $(signal_output_naming(output_value));\n"
+        end
+        vhdl_str *= "\t\tend if;\n"
+        vhdl_str *= "\tend process;\n"
+    end
+
+    for output_value in output_values
+        addernode = get_output_addernode(addergraph, output_value)
+        output_name = signal_output_naming(abs(output_value))
+        vhdl_str *= "\t$(signal_output_naming(output_value)) <= $(output_value < 0 ? "-" : "")bitcount_$(output_name)(TO_INTEGER(signed($(signal_input_name))));\n"
+    end
+
+    vhdl_str *= "end architecture;\n"
+
+    return vhdl_str
+end
+
+
+
 function write_vhdl(
         addergraph::AdderGraph;
         vhdl_filename::String="addergraph.vhdl",
         no_addergraph::Bool=false,
+        use_tables::Bool=false,
         verbose::Bool=false,
         kwargs...
     )
     if !no_addergraph
         vhdl_str = vhdl_addergraph_generation(addergraph; verbose=verbose, kwargs...)
+    elseif use_tables
+        vhdl_str = vhdl_output_tables(addergraph; verbose=verbose, kwargs...)
     else
         vhdl_str = vhdl_output_products(addergraph; verbose=verbose, kwargs...)
     end
