@@ -28,7 +28,11 @@ function entity_naming(addernode::AdderNode)
 end
 
 function entity_naming(addergraph::AdderGraph)
-    return "Addergraph_$(join(output_naming.(get_outputs(addergraph)), "_"))"
+    entity_name = "Addergraph_$(join(output_naming.(get_outputs(addergraph)), "_"))"
+    if length(entity_name) >= 40
+        entity_name = strip(entity_name[1:min(length(entity_name),40)], '_')*"_etc"
+    end
+    return entity_name
 end
 
 function entity_naming(outputs::Vector{Int})
@@ -451,17 +455,15 @@ function vhdl_addergraph_generation(
             addernode = get_origin(addergraph)
             _, _, signal_output_name = signal_naming(addernode)
             if i*get_adder_depth(addergraph) >= get_depth(addernode)
-                if i*get_adder_depth(addergraph) <= get_depth(addernode)+get_nb_registers(addernode, addergraph)-1
+                if i*get_adder_depth(addergraph) <= get_depth(addernode)+get_nb_registers(addernode, addergraph)
                     vhdl_str *= "\t\t\t$(signal_output_name)_$(i*get_adder_depth(addergraph)) <= $(signal_output_name)_$(i*get_adder_depth(addergraph))_register;\n"
                 end
             end
-            for addernode in get_nodes(addergraph)
-                _, _, signal_output_name = signal_naming(addernode)
-                if i*get_adder_depth(addergraph) >= get_depth(addernode)
-                    if i*get_adder_depth(addergraph) <= get_depth(addernode)+get_nb_registers(addernode, addergraph)-1
-                        vhdl_str *= "\t\t\t$(signal_output_name)_$(i*get_adder_depth(addergraph)) <= $(signal_output_name)_$(i*get_adder_depth(addergraph))_register;\n"
-                    end
-                end
+        end
+        for addernode in get_nodes(addergraph)
+            _, _, signal_output_name = signal_naming(addernode)
+            if get_adder_depth(addergraph) <= get_depth(addernode)+get_nb_registers(addernode, addergraph)-1
+                vhdl_str *= "\t\t\t$(signal_output_name)_$(get_adder_depth(addergraph)) <= $(signal_output_name)_$(get_adder_depth(addergraph))_register;\n"
             end
         end
         vhdl_str *= "\t\tend if;\n"
