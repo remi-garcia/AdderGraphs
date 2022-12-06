@@ -214,7 +214,7 @@ function adder_generation(
     if inputsum_max_wl != addernode_wl
         vhdl_str *= "\t$(signal_output_name) <= "
         vhdl_str *= "$(signal_output_wl_adjusted_name)($(inputsum_max_wl-1) downto $(inputsum_max_wl-addernode_wl))"
-        vhdl_str *= ");\n"
+        vhdl_str *= ";\n"
     end
     vhdl_str *= "\to_SUM <= $(signal_output_name);\n"
     vhdl_str *= "end architecture;\n"
