@@ -201,8 +201,9 @@ function adder_generation(
     end
 
     vhdl_str *= "\t$(signal_output_wl_adjusted_name) <= "
+    vhdl_str *= "std_logic_vector("
     vhdl_str *= "$(input_signs[1] ? "-" : "")"
-    vhdl_str *= "std_logic_vector(signed($(signal_left_wl_adjusted_name))"
+    vhdl_str *= "signed($(signal_left_wl_adjusted_name))"
     vhdl_str *= " $(input_signs[2] ? "-" : "+") "
     vhdl_str *= "signed($(signal_right_wl_adjusted_name)));\n"
 
