@@ -22,7 +22,7 @@ function get_nb_registers(addernode::AdderNode, addergraph::AdderGraph)
         end
     end
     if !same_adders(addernode, get_origin(addergraph))
-        nb_registers =+ 1
+        nb_registers += 1
     end
     return nb_registers
 end
