@@ -36,7 +36,11 @@ function entity_naming(addergraph::AdderGraph)
 end
 
 function entity_naming(outputs::Vector{Int})
-    return "Outputs_$(join(output_naming.(outputs), "_"))"
+    entity_name = "Outputs_$(join(output_naming.(outputs), "_"))"
+    if length(entity_name) >= 40
+        entity_name = strip(entity_name[1:min(length(entity_name),40)], '_')*"_etc"
+    end
+    return entity_name
 end
 
 function adder_port_names()
