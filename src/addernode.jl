@@ -81,7 +81,7 @@ function get_depth(addernode::AdderNode)::Int
         return addernode.stage
     end
     if addernode.stage == 0
-        if get_value(addernode) != 1 || length(get_input_edges(addernode)) == 0
+        if get_value(addernode) != 1 || length(get_input_edges(addernode)) != 0
             set_stage!(addernode, maximum(get_depth.(get_input_addernodes(addernode)).+1))
         end
     end
