@@ -385,7 +385,7 @@ function vhdl_addergraph_generation(
             addernode = get_origin(addergraph)
             _, _, signal_output_name = signal_naming(addernode)
             if i >= get_depth(addernode)
-                if i <= min(get_depth(addernode)+get_nb_registers(addernode, addergraph)-1, get_adder_depth(addergraph)-1)
+                if i <= min(get_depth(addernode)+get_nb_registers(addernode, addergraph), get_adder_depth(addergraph)-1)
                     vhdl_str *= "\t\t\t$(signal_output_name)_$(i) <= $(signal_output_name)_$(i)_register;\n"
                 end
             end
