@@ -99,6 +99,8 @@ export write_addergraph_truncations
 export get_adder_depth
 export get_nb_registers
 export get_nb_register_bits
+export get_error_bounds
+export get_maximal_output_error_bound
 
 # AdderNode
 export get_value

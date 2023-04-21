@@ -52,10 +52,13 @@ function adder_generation(
         addernode::AdderNode, addergraph::AdderGraph;
         wordlength_in::Int,
         target_frequency::Int=400,
-        verbose::Bool=false
+        verbose::Bool=false,
+        entity_name::String=""
     )
     port_names = adder_port_names()
-    entity_name = entity_naming(addernode)
+    if isempty(entity_name)
+        entity_name = entity_naming(addernode)
+    end
     vhdl_str = """
     --------------------------------------------------------------------------------
     --                      $(entity_name)
@@ -233,7 +236,9 @@ function vhdl_addergraph_generation(
         pipeline_inout::Bool=false,
         with_clk::Bool=true,
         target_frequency::Int=400,
-        verbose::Bool=false
+        verbose::Bool=false,
+        entity_name::String="",
+        adder_entity_name::String="",
     )
     if pipeline || pipeline_inout
         with_clk = true
@@ -246,14 +251,22 @@ function vhdl_addergraph_generation(
 
     vhdl_str = ""
     adder_ports = Dict{String, String}()
+    current_adder = 1
     for addernode in get_nodes(addergraph)
-        adder_entity_name, adder_port_str, adder_vhdl_str = adder_generation(addernode, addergraph; wordlength_in=wordlength_in, target_frequency=target_frequency)
-        adder_ports[adder_entity_name] = adder_port_str
+        current_adder_entity_name = ""
+        if !isempty(adder_entity_name)
+            current_adder_entity_name = "$(adder_entity_name)_$(current_adder)"
+            current_adder += 1
+        end
+        current_adder_entity_name, adder_port_str, adder_vhdl_str = adder_generation(addernode, addergraph; wordlength_in=wordlength_in, target_frequency=target_frequency, entity_name=current_adder_entity_name)
+        adder_ports[current_adder_entity_name] = adder_port_str
         vhdl_str *= adder_vhdl_str
         vhdl_str *= "\n\n\n"
     end
 
-    entity_name = entity_naming(addergraph)
+    if isempty(entity_name)
+        entity_name = entity_naming(addergraph)
+    end
     vhdl_str *= """
     --------------------------------------------------------------------------------
     --                      $(entity_name)
@@ -275,33 +288,36 @@ function vhdl_addergraph_generation(
     -- Generation of addergraph
     """
 
-    vhdl_str *= """
-    entity $(entity_name) is
-        port (
-    """
+    vhdl_str *= "entity $(entity_name) is\n"
+    port_str = "port (\n"
+    # vhdl_str *= "\t\tclk : in std_logic;"
+    # vhdl_str *= " -- Clock\n"
+
     # Always provide input clock for correct power results with flopoco script
     # if pipeline
     if with_clk
-        vhdl_str *= "\t\tclk : in std_logic;"
-        vhdl_str *= " -- Clock\n"
+        port_str *= "\t\tclk : in std_logic;"
+        port_str *= " -- Clock\n"
     end
     # end
-    vhdl_str *= "\t\tinput_x : in std_logic_vector($(wordlength_in-1) downto 0);"
-    vhdl_str *= " -- Input\n"
+    port_str *= "\t\tinput_x : in std_logic_vector($(wordlength_in-1) downto 0);"
+    port_str *= " -- Input\n"
     if length(output_values) >= 2
         for output_value in output_values[1:(end-1)]
             output_name = output_naming(output_value)
             addernode = get_output_addernode(addergraph, output_value)
-            vhdl_str *= "\t\t$(output_name): out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);"
-            vhdl_str *= " -- Output $(output_value)\n"
+            port_str *= "\t\t$(output_name): out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);"
+            port_str *= " -- Output $(output_value)\n"
         end
     end
     output_value = output_values[end]
     output_name = output_naming(output_value)
     addernode = get_output_addernode(addergraph, output_value)
-    vhdl_str *= "\t\t$(output_name): out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0)"
-    vhdl_str *= " -- Output $(output_value)\n"
-    vhdl_str *= "\t);\n"
+    port_str *= "\t\t$(output_name): out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0)"
+    port_str *= " -- Output $(output_value)\n"
+    port_str *= "\t);\n"
+
+    vhdl_str *= port_str
     vhdl_str *= "end entity;\n"
     vhdl_str *= "\n"
 
@@ -548,7 +564,7 @@ function vhdl_addergraph_generation(
 
     vhdl_str *= "end architecture;\n"
 
-    return vhdl_str
+    return entity_name, vhdl_str, port_str
 end
 
 
@@ -820,8 +836,9 @@ function write_vhdl(
         verbose::Bool=false,
         kwargs...
     )
+    vhdl_str = ""
     if !no_addergraph
-        vhdl_str = vhdl_addergraph_generation(addergraph; verbose=verbose, kwargs...)
+        _, vhdl_str, _ = vhdl_addergraph_generation(addergraph; verbose=verbose, kwargs...)
     elseif use_tables
         vhdl_str = vhdl_output_tables(addergraph; verbose=verbose, kwargs...)
     else

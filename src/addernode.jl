@@ -52,11 +52,11 @@ function compute_nb_onebit_adders(addernode::AdderNode, wordlength_in::Int)
 end
 
 
-function get_adder_wordlength(addernode::AdderNode, wordlength_in::Int) #TODO take truncations/errors into account
-    return round(Int, log2(get_value(addernode) * (2^wordlength_in - 1)), RoundUp)
+function get_adder_wordlength(addernode::AdderNode, wordlength_in::Int)
+    return round(Int, log2(get_value(addernode) * (2^wordlength_in - 1) + adder_value_bounds_zeros(addernode)), RoundUp)
 end
 
-function get_input_wordlengths(addernode::AdderNode, wordlength_in::Int) #TODO take truncations/errors into account
+function get_input_wordlengths(addernode::AdderNode, wordlength_in::Int)
     return get_adder_wordlength.(get_input_addernodes(addernode), wordlength_in)
 end
 
@@ -93,6 +93,76 @@ function set_stage!(addernode::AdderNode, stage::Int)
     addernode.stage = stage
     return addernode
 end
+
+
+function adder_value_bounds_zeros(addernode::AdderNode, delta_bounds::Vector{Tuple{Int, Int}}, input_zeros::Vector{Int}; verbose::Bool=false)
+    shifts = get_input_shifts(addernode)
+    for i in 1:length(shifts)
+        delta_bounds[i] = (round(Int, delta_bounds[i][1]*2.0^shifts[i], RoundDown), round(Int, delta_bounds[i][2]*2.0^shifts[i], RoundUp))
+    end
+    negative_inputs = are_negative_inputs(addernode)
+    for i in 1:length(negative_inputs)
+        if negative_inputs[i]
+            delta_bounds[i] = (delta_bounds[i][2], delta_bounds[i][1])
+        end
+    end
+    truncations = get_truncations(addernode)
+    for i in 1:length(truncations)
+        delta_bounds[i] = (
+            delta_bounds[i][1] + max(2^truncations[i]-2^input_zeros[i], 0),
+            delta_bounds[i][2]
+        )
+    end
+
+    output_bounds = (sum(delta_bounds[i][1] for i in 1:length(delta_bounds)), sum(delta_bounds[i][2] for i in 1:length(delta_bounds)))
+
+    output_zeros = minimum(max.(shifts .+ truncations, input_zeros))
+
+    return output_bounds, output_zeros
+end
+
+
+function adder_value_bounds_zeros(addernode::AdderNode; verbose::Bool=false,
+        all_delta_bounds::Dict{Tuple{Int, Int}, Tuple{Int, Int}}=Dict{Tuple{Int, Int}, Tuple{Int, Int}}((1, 0) => (0, 0)),
+        all_input_zeros::Dict{Tuple{Int, Int}, Int}=Dict{Tuple{Int, Int}, Int}((1, 0) => 0)
+    )::Tuple{Tuple{Int, Int}, Int}
+    dict_key = (get_value(addernode), get_depth(addernode))
+    if haskey(all_delta_bounds, dict_key) && haskey(all_input_zeros, dict_key)
+        return all_delta_bounds[dict_key], all_input_zeros[dict_key]
+    end
+    delta_bounds = Vector{Tuple{Int, Int}}()
+    input_zeros = Vector{Int}()
+    for current_input in get_input_addernodes(addernode)
+        current_delta, current_zero = adder_value_bounds_zeros(current_input, verbose=verbose, all_delta_bounds=all_delta_bounds, all_input_zeros=all_input_zeros)
+        push!(delta_bounds, current_delta)
+        push!(input_zeros, current_zero)
+    end
+    shifts = get_input_shifts(addernode)
+    for i in 1:length(shifts)
+        delta_bounds[i] = (round(Int, delta_bounds[i][1]*2.0^shifts[i], RoundDown), round(Int, delta_bounds[i][2]*2.0^shifts[i], RoundUp))
+    end
+    negative_inputs = are_negative_inputs(addernode)
+    for i in 1:length(negative_inputs)
+        if negative_inputs[i]
+            delta_bounds[i] = (delta_bounds[i][2], delta_bounds[i][1])
+        end
+    end
+    truncations = get_truncations(addernode)
+    for i in 1:length(truncations)
+        delta_bounds[i] = (
+            delta_bounds[i][1] + max(2^truncations[i]-2^input_zeros[i], 0),
+            delta_bounds[i][2]
+        )
+    end
+
+    output_bounds = (sum(delta_bounds[i][1] for i in 1:length(delta_bounds)), sum(delta_bounds[i][2] for i in 1:length(delta_bounds)))
+    output_zeros = minimum(max.(shifts .+ truncations, input_zeros))
+    all_delta_bounds[dict_key] = output_bounds
+    all_input_zeros[dict_key] = output_zeros
+
+    return output_bounds, output_zeros
+end
+
 
 
 function evaluate_node(addernode::AdderNode, input_values::Vector{Int}; wlIn::Int, apply_truncations::Bool=true, verbose::Bool=false)

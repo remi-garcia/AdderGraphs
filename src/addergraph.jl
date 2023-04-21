@@ -220,6 +220,9 @@ function isvalid(addergraph::AdderGraph)
     addernodes = get_nodes(addergraph)
     node_values = get_value.(addernodes)
     for output in get_outputs(addergraph)
+        if output == 1
+            continue
+        end
         if !(output in node_values)
             return false
         end
@@ -298,4 +301,28 @@ function get_output_addernode(addergraph::AdderGraph, output_value::Int)
         end
     end
     return addernode
+end
+
+
+function get_error_bounds(addergraph::AdderGraph; verbose::Bool=false)::Dict{Tuple{Int, Int}, Tuple{Int, Int}}
+    error_bounds = Dict{Tuple{Int, Int}, Tuple{Int, Int}}((1,0) => (0, 0))
+    adder_zeros = Dict{Tuple{Int, Int}, Int}((1,0) => 0)
+    for addernode in get_nodes(addergraph)
+        current_bounds, current_zero = adder_value_bounds_zeros(addernode,
+            [error_bounds[(get_value(input_node), get_depth(input_node))] for input_node in get_input_addernodes(addernode)],
+            [adder_zeros[(get_value(input_node), get_depth(input_node))] for input_node in get_input_addernodes(addernode)];
+            verbose=verbose
+        )
+        error_bounds[(get_value(addernode), get_depth(addernode))] = current_bounds
+        adder_zeros[(get_value(addernode), get_depth(addernode))] = current_zero
+    end
+    return error_bounds
+end
+
+
+
+
+function get_maximal_output_error_bound(addergraph::AdderGraph; verbose::Bool=false)::Int
+    error_bounds = get_error_bounds(addergraph; verbose=verbose)
+    return maximum(maximum.(error_bounds))
 end
