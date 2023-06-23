@@ -53,7 +53,7 @@ end
 
 
 function get_adder_wordlength(addernode::AdderNode, wordlength_in::Int)
-    return round(Int, log2(get_value(addernode) * (2^wordlength_in - 1) + adder_value_bounds_zeros(addernode)), RoundUp)
+    return round(Int, log2(get_value(addernode) * (2^wordlength_in - 1) + maximum(abs.(adder_value_bounds_zeros(addernode)[1]))), RoundUp)
 end
 
 function get_input_wordlengths(addernode::AdderNode, wordlength_in::Int)
