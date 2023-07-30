@@ -48,7 +48,7 @@ function compute_nb_onebit_adders(addernode::AdderNode, wordlength_in::Int)
     @assert length(inputs_signed) == 2
     @assert length(inputs_shifts) == 2
     current_wl = get_adder_wordlength(addernode, wordlength_in)
-    return current_wl - min(0, minimum(inputs_shifts)) - ((current_wl > maximum(inputs_wl + inputs_shifts) ? 1 : 0) + max(inputs_signed[2] ? 0 : inputs_truncations[1] + inputs_shifts[1], inputs_signed[1] ? 0 : inputs_truncations[2] + inputs_shifts[2]))
+    return current_wl - min(0, minimum(inputs_shifts)) - ((current_wl > maximum(inputs_wl .+ inputs_shifts) ? 1 : 0) + max(inputs_signed[2] ? 0 : inputs_truncations[1] + inputs_shifts[1], inputs_signed[1] ? 0 : inputs_truncations[2] + inputs_shifts[2]))
 end
 
 

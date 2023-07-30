@@ -67,7 +67,8 @@ function write_addergraph_truncations(addergraph::AdderGraph; flopoco_format::Bo
             else
                 firsttruncnocomma = false
             end
-            adderstring *= "$(max(truncation-shift, 0))"
+            # adderstring *= "$(max(truncation-shift, 0))"
+            adderstring *= "$(truncation)"
         end
     end
     adderstring *= "\""
