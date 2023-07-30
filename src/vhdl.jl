@@ -53,7 +53,8 @@ function adder_generation(
         wordlength_in::Int,
         target_frequency::Int=400,
         verbose::Bool=false,
-        entity_name::String=""
+        entity_name::String="",
+        apply_truncations::Bool=true,
     )
     port_names = adder_port_names()
     if isempty(entity_name)
@@ -82,6 +83,7 @@ function adder_generation(
     addernode_wl = get_adder_wordlength(addernode, wordlength_in)
     input_wls = get_input_wordlengths(addernode, wordlength_in)
     input_shifts = get_input_shifts(addernode)
+    input_truncations = get_truncations(addernode)
     input_signs = are_negative_inputs(addernode) # true is negative
     input_depths = get_input_depths(addernode)
     inputsum_max_wl = max(input_wls[1]+max(0,input_shifts[1]), input_wls[2]+max(0,input_shifts[2]))
@@ -189,8 +191,21 @@ function adder_generation(
     end
 
     vhdl_str *= "\nbegin\n"
-    vhdl_str *= "\t$(signal_left_name) <= i_L;\n"
-    vhdl_str *= "\t$(signal_right_name) <= i_R;\n"
+    if apply_truncations
+        if input_truncations[1] != 0
+            vhdl_str *= "\t$(signal_left_name) <= $(port_names[1])($(input_wls[1]-1) downto $(input_truncations[1])) & \"$(repeat("0", input_truncations[1]))\";\n"
+        else
+            vhdl_str *= "\t$(signal_left_name) <= $(port_names[1]);\n"
+        end
+        if input_truncations[2] != 0
+            vhdl_str *= "\t$(signal_right_name) <= $(port_names[2])($(input_wls[2]-1) downto $(input_truncations[2])) & \"$(repeat("0", input_truncations[2]))\";\n"
+        else
+            vhdl_str *= "\t$(signal_right_name) <= $(port_names[2]);\n"
+        end
+    else
+        vhdl_str *= "\t$(signal_left_name) <= $(port_names[1]);\n"
+        vhdl_str *= "\t$(signal_right_name) <= $(port_names[2]);\n"
+    end
 
     # Resize for shifts
     if input_shifts[1] > 0
@@ -239,6 +254,7 @@ function vhdl_addergraph_generation(
         verbose::Bool=false,
         entity_name::String="",
         adder_entity_name::String="",
+        kwargs...
     )
     if pipeline || pipeline_inout
         with_clk = true
@@ -258,7 +274,7 @@ function vhdl_addergraph_generation(
             current_adder_entity_name = "$(adder_entity_name)_$(current_adder)"
             current_adder += 1
         end
-        current_adder_entity_name, adder_port_str, adder_vhdl_str = adder_generation(addernode, addergraph; wordlength_in=wordlength_in, target_frequency=target_frequency, entity_name=current_adder_entity_name)
+        current_adder_entity_name, adder_port_str, adder_vhdl_str = adder_generation(addernode, addergraph; wordlength_in=wordlength_in, target_frequency=target_frequency, entity_name=current_adder_entity_name, kwargs...)
         adder_ports[current_adder_entity_name] = adder_port_str
         vhdl_str *= adder_vhdl_str
         vhdl_str *= "\n\n\n"
