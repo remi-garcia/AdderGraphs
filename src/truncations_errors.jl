@@ -35,11 +35,11 @@ function read_addergraph_truncations(addergraph::AdderGraph, s::String)
             continue
         end
         truncations = parse.(Int, strip.(split(adder_trunc, ",")))
-        for i in 1:length(truncations)
-            if truncations[i] != 0
-                truncations[i] += get_input_shifts(current_addernode)[i]
-            end
-        end
+        # for i in 1:length(truncations)
+        #     if truncations[i] != 0
+        #         truncations[i] += get_input_shifts(current_addernode)[i]
+        #     end
+        # end
         set_truncations!(current_addernode, truncations)
     end
     return addergraph
