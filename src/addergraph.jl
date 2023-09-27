@@ -219,7 +219,7 @@ end
 function isvalid(addergraph::AdderGraph)
     addernodes = get_nodes(addergraph)
     node_values = get_value.(addernodes)
-    for output in odd.(add.(get_outputs(addergraph)))
+    for output in odd.(abs.(get_outputs(addergraph)))
         if output == 1
             continue
         end
