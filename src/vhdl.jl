@@ -55,6 +55,8 @@ function adder_generation(
         verbose::Bool=false,
         entity_name::String="",
         apply_truncations::Bool=true,
+        twos_complement::Bool=true,
+        kwargs...
     )
     port_names = adder_port_names()
     if isempty(entity_name)
@@ -215,23 +217,36 @@ function adder_generation(
         vhdl_str *= "\t$(signal_right_shifted_name) <= $(signal_right_name)($(signal_right_wl-1) downto 0) & \"$(repeat("0", input_shifts[2]))\";\n"
     end
 
-    if signal_left_shifted_wl != signal_left_wl_adjusted_wl
-        vhdl_str *= "\t$(signal_left_wl_adjusted_name) <= "
-        vhdl_str *= "($(signal_left_wl_adjusted_wl-signal_left_shifted_wl-1) downto 0 => $(signal_left_shifted_name)($(signal_left_shifted_wl-1))) "
-        vhdl_str *= "& $(signal_left_shifted_name)($(signal_left_shifted_wl-1) downto 0);\n"
-    end
-    if signal_right_shifted_wl != signal_right_wl_adjusted_wl
-        vhdl_str *= "\t$(signal_right_wl_adjusted_name) <= "
-        vhdl_str *= "($(signal_right_wl_adjusted_wl-signal_right_shifted_wl-1) downto 0 => $(signal_right_shifted_name)($(signal_right_shifted_wl-1))) "
-        vhdl_str *= "& $(signal_right_shifted_name)($(signal_right_shifted_wl-1) downto 0);\n"
+    if twos_complement
+        if signal_left_shifted_wl != signal_left_wl_adjusted_wl
+            vhdl_str *= "\t$(signal_left_wl_adjusted_name) <= "
+            vhdl_str *= "($(signal_left_wl_adjusted_wl-signal_left_shifted_wl-1) downto 0 => $(signal_left_shifted_name)($(signal_left_shifted_wl-1))) "
+            vhdl_str *= "& $(signal_left_shifted_name)($(signal_left_shifted_wl-1) downto 0);\n"
+        end
+        if signal_right_shifted_wl != signal_right_wl_adjusted_wl
+            vhdl_str *= "\t$(signal_right_wl_adjusted_name) <= "
+            vhdl_str *= "($(signal_right_wl_adjusted_wl-signal_right_shifted_wl-1) downto 0 => $(signal_right_shifted_name)($(signal_right_shifted_wl-1))) "
+            vhdl_str *= "& $(signal_right_shifted_name)($(signal_right_shifted_wl-1) downto 0);\n"
+        end
+    else
+        if signal_left_shifted_wl != signal_left_wl_adjusted_wl
+            vhdl_str *= "\t$(signal_left_wl_adjusted_name) <= "
+            vhdl_str *= "\"$(repeat("0", signal_left_wl_adjusted_wl-signal_left_shifted_wl))\" "
+            vhdl_str *= "& $(signal_left_shifted_name)($(signal_left_shifted_wl-1) downto 0);\n"
+        end
+        if signal_right_shifted_wl != signal_right_wl_adjusted_wl
+            vhdl_str *= "\t$(signal_right_wl_adjusted_name) <= "
+            vhdl_str *= "\"$(repeat("0", signal_right_wl_adjusted_wl-signal_right_shifted_wl))\" "
+            vhdl_str *= "& $(signal_right_shifted_name)($(signal_right_shifted_wl-1) downto 0);\n"
+        end
     end
 
     vhdl_str *= "\t$(signal_output_wl_adjusted_name) <= "
     vhdl_str *= "std_logic_vector("
     vhdl_str *= "$(input_signs[1] ? "-" : "")"
-    vhdl_str *= "signed($(signal_left_wl_adjusted_name))"
+    vhdl_str *= "$(twos_complement ? "" : "un")signed($(signal_left_wl_adjusted_name))"
     vhdl_str *= " $(input_signs[2] ? "-" : "+") "
-    vhdl_str *= "signed($(signal_right_wl_adjusted_name)));\n"
+    vhdl_str *= "$(twos_complement ? "" : "un")signed($(signal_right_wl_adjusted_name)));\n"
 
     if inputsum_max_wl != addernode_wl
         vhdl_str *= "\t$(signal_output_name) <= "
