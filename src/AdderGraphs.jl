@@ -62,6 +62,7 @@ include("registers.jl")
 include("addernode.jl")
 include("addergraph.jl")
 include("vhdl.jl")
+include("hls.jl")
 
 # Utils
 export odd
@@ -119,7 +120,11 @@ export get_input_wordlengths
 export get_input_depths
 
 # VHDL
-export addergraph_generation
+export vhdl_addergraph_generation
 export write_vhdl
+
+# HLS
+export hls_addergraph_generation
+export write_hls
 
 end # module

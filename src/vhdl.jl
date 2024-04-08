@@ -15,12 +15,12 @@ function signal_wl(addernode::AdderNode, wordlength_in::Int)
     return (signal_input_left, signal_input_right, signal_output)
 end
 
-function output_naming(output_value::Int)
+function output_naming_vhdl(output_value::Int)
     return "o$(output_value < 0 ? "minus" : "")$(abs(output_value))"
 end
 
 function signal_output_naming(output_value::Int)
-    return "x_$(output_naming(output_value))"
+    return "x_$(output_naming_vhdl(output_value))"
 end
 
 function entity_naming(addernode::AdderNode)
@@ -28,7 +28,7 @@ function entity_naming(addernode::AdderNode)
 end
 
 function entity_naming(addergraph::AdderGraph)
-    entity_name = "Addergraph_$(join(output_naming.(get_outputs(addergraph)), "_"))"
+    entity_name = "Addergraph_$(join(output_naming_vhdl.(get_outputs(addergraph)), "_"))"
     if length(entity_name) >= 40
         entity_name = strip(entity_name[1:min(length(entity_name),40)], '_')*"_etc"
     end
@@ -36,7 +36,7 @@ function entity_naming(addergraph::AdderGraph)
 end
 
 function entity_naming(outputs::Vector{Int})
-    entity_name = "Outputs_$(join(output_naming.(outputs), "_"))"
+    entity_name = "Outputs_$(join(output_naming_vhdl.(outputs), "_"))"
     if length(entity_name) >= 40
         entity_name = strip(entity_name[1:min(length(entity_name),40)], '_')*"_etc"
     end
@@ -48,7 +48,7 @@ function adder_port_names()
 end
 
 
-function adder_generation(
+function adder_generation_vhdl(
         addernode::AdderNode, addergraph::AdderGraph;
         wordlength_in::Int,
         target_frequency::Int=400,
@@ -88,6 +88,10 @@ function adder_generation(
     input_truncations = get_truncations(addernode)
     input_signs = are_negative_inputs(addernode) # true is negative
     input_depths = get_input_depths(addernode)
+    if minimum(input_shifts) < 0
+        @assert input_shifts[1] == input_shifts[2]
+    end
+
     inputsum_max_wl = max(input_wls[1]+max(0,input_shifts[1]), input_wls[2]+max(0,input_shifts[2]))
     # println(inputsum_max_wl)
     # println("$(input_values[1]) -- $(input_wls[1]) -- $(input_shifts[1])")
@@ -105,6 +109,9 @@ function adder_generation(
         end
     # else
     #     inputsum_max_wl = inputsum_max_wl
+    end
+    if minimum(input_shifts) < 0
+        inputsum_max_wl = max(inputsum_max_wl, addernode_wl + abs(input_shifts[1]))
     end
 
     # Entity
@@ -141,7 +148,7 @@ function adder_generation(
     signal_output_wl_adjusted_name = "$(signal_output_name)_adjusted"
     vhdl_str *= "signal $(signal_output_name) : std_logic_vector($(addernode_wl-1) downto 0);"
     vhdl_str *= " -- Output signal\n"
-    if inputsum_max_wl != addernode_wl
+    if minimum(input_shifts) < 0
         vhdl_str *= "signal $(signal_output_wl_adjusted_name) : std_logic_vector($(inputsum_max_wl-1) downto 0);"
         vhdl_str *= " -- Output signal with adjusted wordlength\n"
     else
@@ -248,12 +255,12 @@ function adder_generation(
     vhdl_str *= " $(input_signs[2] ? "-" : "+") "
     vhdl_str *= "$(twos_complement ? "" : "un")signed($(signal_right_wl_adjusted_name)));\n"
 
-    if inputsum_max_wl != addernode_wl
+    if minimum(input_shifts) < 0
         vhdl_str *= "\t$(signal_output_name) <= "
-        vhdl_str *= "$(signal_output_wl_adjusted_name)($(inputsum_max_wl-1) downto $(inputsum_max_wl-addernode_wl))"
+        vhdl_str *= "$(signal_output_wl_adjusted_name)($(addernode_wl+abs(input_shifts[1])-1) downto $(abs(input_shifts[1])))"
         vhdl_str *= ";\n"
     end
-    vhdl_str *= "\to_SUM <= $(signal_output_name);\n"
+    vhdl_str *= "\t$(port_names[3]) <= $(signal_output_name);\n"
     vhdl_str *= "end architecture;\n"
 
     return (entity_name, port_str, vhdl_str)
@@ -289,7 +296,7 @@ function vhdl_addergraph_generation(
             current_adder_entity_name = "$(adder_entity_name)_$(current_adder)"
             current_adder += 1
         end
-        current_adder_entity_name, adder_port_str, adder_vhdl_str = adder_generation(addernode, addergraph; wordlength_in=wordlength_in, target_frequency=target_frequency, entity_name=current_adder_entity_name, kwargs...)
+        current_adder_entity_name, adder_port_str, adder_vhdl_str = adder_generation_vhdl(addernode, addergraph; wordlength_in=wordlength_in, target_frequency=target_frequency, entity_name=current_adder_entity_name, kwargs...)
         adder_ports[current_adder_entity_name] = adder_port_str
         vhdl_str *= adder_vhdl_str
         vhdl_str *= "\n\n\n"
@@ -306,7 +313,7 @@ function vhdl_addergraph_generation(
     --------------------------------------------------------------------------------
     -- Target frequency (MHz): $(target_frequency)
     -- Input signals: $(with_clk ? "clk " : "")input_x
-    -- Output signals: $(join([output_naming(output_value) for output_value in output_values], " "))
+    -- Output signals: $(join([output_naming_vhdl(output_value) for output_value in output_values], " "))
 
     library ieee;
     use ieee.std_logic_1164.all;
@@ -335,14 +342,14 @@ function vhdl_addergraph_generation(
     port_str *= " -- Input\n"
     if length(output_values) >= 2
         for output_value in output_values[1:(end-1)]
-            output_name = output_naming(output_value)
+            output_name = output_naming_vhdl(output_value)
             addernode = get_output_addernode(addergraph, output_value)
             port_str *= "\t\t$(output_name): out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);"
             port_str *= " -- Output $(output_value)\n"
         end
     end
     output_value = output_values[end]
-    output_name = output_naming(output_value)
+    output_name = output_naming_vhdl(output_value)
     addernode = get_output_addernode(addergraph, output_value)
     port_str *= "\t\t$(output_name): out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0)"
     port_str *= " -- Output $(output_value)\n"
@@ -588,7 +595,7 @@ function vhdl_addergraph_generation(
         output_name = signal_output_naming(output_value)
         _, _, signal_output_name = signal_naming(addernode)
         vhdl_str *= "\t$(output_name) <= $(signal_output_name)_$(get_adder_depth(addergraph));\n"
-        ag_output_name = output_naming(output_value)
+        ag_output_name = output_naming_vhdl(output_value)
         vhdl_str *= "\t$(ag_output_name) <= $(output_name);\n"
     end
     vhdl_str *= ""
@@ -624,7 +631,7 @@ function vhdl_output_products(
     --------------------------------------------------------------------------------
     -- Target frequency (MHz): $(target_frequency)
     -- Input signals: $(with_clk ? "clk " : "")input_x
-    -- Output signals: $(join([output_naming(output_value) for output_value in output_values], " "))
+    -- Output signals: $(join([output_naming_vhdl(output_value) for output_value in output_values], " "))
 
     library ieee;
     use ieee.std_logic_1164.all;
@@ -652,14 +659,14 @@ function vhdl_output_products(
     vhdl_str *= " -- Input\n"
     if length(output_values) >= 2
         for output_value in output_values[1:(end-1)]
-            output_name = output_naming(output_value)
+            output_name = output_naming_vhdl(output_value)
             addernode = get_output_addernode(addergraph, output_value)
             vhdl_str *= "\t\t$(output_name): out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);"
             vhdl_str *= " -- Output $(output_value)\n"
         end
     end
     output_value = output_values[end]
-    output_name = output_naming(output_value)
+    output_name = output_naming_vhdl(output_value)
     addernode = get_output_addernode(addergraph, output_value)
     vhdl_str *= "\t\t$(output_name): out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0)"
     vhdl_str *= " -- Output $(output_value)\n"
@@ -694,7 +701,7 @@ function vhdl_output_products(
     if !pipeline_inout
         vhdl_str *= "\t$(signal_input_name) <= input_x;\n"
         for output_value in output_values
-            vhdl_str *= "\t$(output_naming(output_value)) <= $(signal_output_naming(output_value));\n"
+            vhdl_str *= "\t$(output_naming_vhdl(output_value)) <= $(signal_output_naming(output_value));\n"
         end
     else
         # https://stackoverflow.com/questions/9989913/vhdl-how-to-use-clk-and-reset-in-process
@@ -706,7 +713,7 @@ function vhdl_output_products(
         vhdl_str *= "\t\tif(rising_edge(clk)) then\n"
         vhdl_str *= "\t\t\t$(signal_input_name) <= input_x;\n"
         for output_value in output_values
-            vhdl_str *= "\t\t\t$(output_naming(output_value)) <= $(signal_output_naming(output_value));\n"
+            vhdl_str *= "\t\t\t$(output_naming_vhdl(output_value)) <= $(signal_output_naming(output_value));\n"
         end
         vhdl_str *= "\t\tend if;\n"
         vhdl_str *= "\tend process;\n"
@@ -745,7 +752,7 @@ function vhdl_output_tables(
     --------------------------------------------------------------------------------
     -- Target frequency (MHz): $(target_frequency)
     -- Input signals: $(with_clk ? "clk " : "")input_x
-    -- Output signals: $(join([output_naming(output_value) for output_value in output_values], " "))
+    -- Output signals: $(join([output_naming_vhdl(output_value) for output_value in output_values], " "))
 
     library ieee;
     use ieee.std_logic_1164.all;
@@ -774,14 +781,14 @@ function vhdl_output_tables(
     vhdl_str *= " -- Input\n"
     if length(output_values) >= 2
         for output_value in output_values[1:(end-1)]
-            output_name = output_naming(output_value)
+            output_name = output_naming_vhdl(output_value)
             addernode = get_output_addernode(addergraph, output_value)
             vhdl_str *= "\t\t$(output_name): out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);"
             vhdl_str *= " -- Output $(output_value)\n"
         end
     end
     output_value = output_values[end]
-    output_name = output_naming(output_value)
+    output_name = output_naming_vhdl(output_value)
     addernode = get_output_addernode(addergraph, output_value)
     vhdl_str *= "\t\t$(output_name): out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0)"
     vhdl_str *= " -- Output $(output_value)\n"
@@ -828,7 +835,7 @@ function vhdl_output_tables(
     if !pipeline_inout
         vhdl_str *= "\t$(signal_input_name) <= input_x;\n"
         for output_value in output_values
-            vhdl_str *= "\t$(output_naming(output_value)) <= $(signal_output_naming(output_value));\n"
+            vhdl_str *= "\t$(output_naming_vhdl(output_value)) <= $(signal_output_naming(output_value));\n"
         end
     else
         # https://stackoverflow.com/questions/9989913/vhdl-how-to-use-clk-and-reset-in-process
@@ -840,7 +847,7 @@ function vhdl_output_tables(
         vhdl_str *= "\t\tif(rising_edge(clk)) then\n"
         vhdl_str *= "\t\t\t$(signal_input_name) <= input_x;\n"
         for output_value in output_values
-            vhdl_str *= "\t\t\t$(output_naming(output_value)) <= $(signal_output_naming(output_value));\n"
+            vhdl_str *= "\t\t\t$(output_naming_vhdl(output_value)) <= $(signal_output_naming(output_value));\n"
         end
         vhdl_str *= "\t\tend if;\n"
         vhdl_str *= "\tend process;\n"
