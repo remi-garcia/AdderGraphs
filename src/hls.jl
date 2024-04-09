@@ -53,6 +53,7 @@ function adder_generation_hls(
         wordlength_in::Int,
         verbose::Bool=false,
         function_name::String="",
+        twos_complement::Bool=true,
         kwargs...
     )
     var_names = adder_variable_names()
@@ -80,21 +81,22 @@ function adder_generation_hls(
     // from inputs $(input_values[1]) and $(input_values[2])
     """
 
-    hls_str *= "uint_$(addernode_wl) $(function_name)(uint_$(input_wls[1]) $(var_names[1]), uint_$(input_wls[2]) $(var_names[2])) {\n"
+    hls_str *= "ap_$(twos_complement ? "" : "u")int<$(addernode_wl)> $(function_name)(ap_$(twos_complement ? "" : "u")int<$(input_wls[1])> $(var_names[1]), ap_$(twos_complement ? "" : "u")int<$(input_wls[2])> $(var_names[2])) {\n"
+    hls_str *= "\t#pragma HLS inline\n"
 
     # Function
-    hls_str *= "\tuint_$(addernode_wl) $(var_names[3]);\n"
+    hls_str *= "\tap_$(twos_complement ? "" : "u")int<$(addernode_wl)> $(var_names[3]);\n"
     variable_output_name = "x_out_c$(addernode_value)"
-    hls_str *= "\tuint_$(addernode_wl-min(0, input_shifts[1])) $(variable_output_name);\n"
+    hls_str *= "\tap_$(twos_complement ? "" : "u")int<$(addernode_wl-min(0, input_shifts[1]))> $(variable_output_name);\n"
 
     # Left
     variable_left_name = "x_in_left_c$(input_values[1])"
     variable_left_wl = input_wls[1]
     variable_left_shifted_name = "$(variable_left_name)_shifted"
     variable_left_shifted_wl = input_wls[1]+max(0, input_shifts[1])
-    hls_str *= "\tuint_$(variable_left_wl) $(variable_left_name);\n"
+    hls_str *= "\tap_$(twos_complement ? "" : "u")int<$(variable_left_wl)> $(variable_left_name);\n"
     if input_shifts[1] > 0
-        hls_str *= "\tuint_$(variable_left_shifted_wl) $(variable_left_shifted_name);\n"
+        hls_str *= "\tap_$(twos_complement ? "" : "u")int<$(variable_left_shifted_wl)> $(variable_left_shifted_name);\n"
     else
         variable_left_shifted_name = variable_left_name
     end
@@ -104,9 +106,9 @@ function adder_generation_hls(
     variable_right_wl = input_wls[2]
     variable_right_shifted_name = "$(variable_right_name)_shifted"
     variable_right_shifted_wl = input_wls[2]+max(0, input_shifts[2])
-    hls_str *= "\tuint_$(variable_right_wl) $(variable_right_name);\n"
+    hls_str *= "\tap_$(twos_complement ? "" : "u")int<$(variable_right_wl)> $(variable_right_name);\n"
     if input_shifts[2] > 0
-        hls_str *= "\tuint_$(variable_right_shifted_wl) $(variable_right_shifted_name);\n"
+        hls_str *= "\tap_$(twos_complement ? "" : "u")int<$(variable_right_shifted_wl)> $(variable_right_shifted_name);\n"
     else
         variable_right_shifted_name = variable_right_name
     end
@@ -125,9 +127,9 @@ function adder_generation_hls(
 
     hls_str *= "\t$(variable_output_name) = "
     hls_str *= "$(input_signs[1] ? "-" : "")"
-    hls_str *= "$(variable_left_name)"
+    hls_str *= "$(variable_left_shifted_name)"
     hls_str *= " $(input_signs[2] ? "-" : "+") "
-    hls_str *= "$(variable_right_name);\n"
+    hls_str *= "$(variable_right_shifted_name);\n"
 
     hls_str *= "\t$(var_names[3]) = $(variable_output_name)$(minimum(input_shifts) < 0 ? " >> $(abs(input_shifts[1]))" : "");\n"
 
@@ -146,11 +148,12 @@ function hls_addergraph_generation(
         verbose::Bool=false,
         function_name::String="",
         adder_function_name::String="",
+        twos_complement::Bool=true,
         kwargs...
     )
     output_values = unique(get_outputs(addergraph))
 
-    hls_str = ""
+    hls_str = "#include \"ap_int.h\"\n\n"
     adder_ports = Dict{String, String}()
     current_adder = 1
     for addernode in get_nodes(addergraph)
@@ -159,7 +162,7 @@ function hls_addergraph_generation(
             current_adder_function_name = "$(adder_function_name)_$(current_adder)"
             current_adder += 1
         end
-        current_adder_function_name, adder_hls_str = adder_generation_hls(addernode, addergraph; wordlength_in=wordlength_in, function_name=current_adder_function_name, kwargs...)
+        current_adder_function_name, adder_hls_str = adder_generation_hls(addernode, addergraph; wordlength_in=wordlength_in, function_name=current_adder_function_name, twos_complement=twos_complement, kwargs...)
         hls_str *= adder_hls_str
         hls_str *= "\n\n\n"
     end
@@ -174,11 +177,11 @@ function hls_addergraph_generation(
     """
 
     variable_input_name = "x"
-    hls_str *= "void $(function_name)(uint_$(wordlength_in) $(variable_input_name)"
+    hls_str *= "void $(function_name)(ap_$(twos_complement ? "" : "u")int<$(wordlength_in)> $(variable_input_name)"
     for output_value in output_values
         output_name = output_naming_hls(output_value)
         addernode = get_output_addernode(addergraph, output_value)
-        hls_str *= ", uint_$(get_adder_wordlength(addernode, wordlength_in)) &$(output_name)"
+        hls_str *= ", ap_$(twos_complement ? "" : "u")int<$(get_adder_wordlength(addernode, wordlength_in))> &$(output_name)"
     end
     hls_str *= ") {\n"
 
@@ -187,18 +190,16 @@ function hls_addergraph_generation(
     addernode = get_origin(addergraph)
     _, _, variable_output_name = variable_naming(addernode)
     variable_output_wl = variable_input_wl
-    hls_str *= "\tuint_$(variable_output_wl) $(variable_output_name);\n"
+    hls_str *= "\tap_$(twos_complement ? "" : "u")int<$(variable_output_wl)> $(variable_output_name);\n"
     for addernode in get_nodes(addergraph)
         variable_left_name, variable_right_name, variable_output_name = variable_naming(addernode)
         variable_left_wl, variable_right_wl, variable_output_wl = variable_wl(addernode, wordlength_in)
-        # hls_str *= "\tuint_$(variable_left_wl) $(variable_left_name);\n"
-        # hls_str *= "\tuint_$(variable_right_wl) $(variable_right_name);\n"
-        hls_str *= "\tuint_$(variable_output_wl) $(variable_output_name);\n"
+        hls_str *= "\tap_$(twos_complement ? "" : "u")int<$(variable_output_wl)> $(variable_output_name);\n"
     end
     for output_value in output_values
         addernode = get_output_addernode(addergraph, output_value)
         output_name = variable_output_naming(output_value)
-        hls_str *= "\tuint_$(get_adder_wordlength(addernode, wordlength_in)) $(output_name);\n"
+        hls_str *= "\tap_$(twos_complement ? "" : "u")int<$(get_adder_wordlength(addernode, wordlength_in))> $(output_name);\n"
     end
 
     hls_str *= "\n"
@@ -235,7 +236,7 @@ end
 
 function write_hls(
         addergraph::AdderGraph;
-        hls_filename::String="addergraph.c",
+        hls_filename::String="addergraph.cpp",
         verbose::Bool=false,
         kwargs...
     )
