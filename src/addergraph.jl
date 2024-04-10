@@ -126,7 +126,10 @@ function write_addergraph(addergraph::AdderGraph; pipeline::Bool=false, flopoco_
     if isempty(addergraph)
         return adderstring*"}"
     end
-    maximum_depth = maximum(get_depth.(get_nodes(addergraph)))
+    maximum_depth = 0
+    if !isempty(get_nodes(addergraph))
+        maximum_depth = maximum(get_depth.(get_nodes(addergraph)))
+    end
     use_depth_by_value = Dict{Int, Vector{Int}}([val => Vector{Int}() for val in get_value.(get_nodes(addergraph))])
     use_depth_by_value[1] = Vector{Int}()
     if pipeline
