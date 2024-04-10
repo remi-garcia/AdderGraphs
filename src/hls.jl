@@ -179,9 +179,13 @@ function hls_addergraph_generation(
     variable_input_name = "x"
     hls_str *= "void $(function_name)(ap_$(twos_complement ? "" : "u")int<$(wordlength_in)> $(variable_input_name)"
     for output_value in output_values
+        if output_value == 0
+            continue
+        end
         output_name = output_naming_hls(output_value)
         addernode = get_output_addernode(addergraph, output_value)
-        hls_str *= ", ap_$(twos_complement ? "" : "u")int<$(get_adder_wordlength(addernode, wordlength_in))> &$(output_name)"
+        shift = round(Int, log2(abs(output_value)/odd(abs(output_value))))
+        hls_str *= ", ap_$(twos_complement ? "" : "u")int<$(get_adder_wordlength(addernode, wordlength_in)+shift)> &$(output_name)"
     end
     hls_str *= ") {\n"
 
@@ -197,9 +201,13 @@ function hls_addergraph_generation(
         hls_str *= "\tap_$(twos_complement ? "" : "u")int<$(variable_output_wl)> $(variable_output_name);\n"
     end
     for output_value in output_values
+        if output_value == 0
+            continue
+        end
         addernode = get_output_addernode(addergraph, output_value)
         output_name = variable_output_naming(output_value)
-        hls_str *= "\tap_$(twos_complement ? "" : "u")int<$(get_adder_wordlength(addernode, wordlength_in))> $(output_name);\n"
+        shift = round(Int, log2(abs(output_value)/odd(abs(output_value))))
+        hls_str *= "\tap_$(twos_complement ? "" : "u")int<$(get_adder_wordlength(addernode, wordlength_in)+shift)> $(output_name);\n"
     end
 
     hls_str *= "\n"
@@ -220,10 +228,14 @@ function hls_addergraph_generation(
     end
 
     for output_value in output_values
+        if output_value == 0
+            continue
+        end
         addernode = get_output_addernode(addergraph, output_value)
         output_name = variable_output_naming(output_value)
         _, _, variable_output_name = variable_naming(addernode)
-        hls_str *= "\t$(output_name) = $(variable_output_name);\n"
+        shift = round(Int, log2(abs(output_value)/odd(abs(output_value))))
+        hls_str *= "\t$(output_name) = $(variable_output_name)$(shift > 0 ? " << $(shift)" : "");\n"
         ag_output_name = output_naming_hls(output_value)
         hls_str *= "\t$(ag_output_name) = $(output_name);\n"
     end
