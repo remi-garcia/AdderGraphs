@@ -148,12 +148,8 @@ function adder_generation_vhdl(
     signal_output_wl_adjusted_name = "$(signal_output_name)_adjusted"
     vhdl_str *= "signal $(signal_output_name) : std_logic_vector($(addernode_wl-1) downto 0);"
     vhdl_str *= " -- Output signal\n"
-    if minimum(input_shifts) < 0
-        vhdl_str *= "signal $(signal_output_wl_adjusted_name) : std_logic_vector($(inputsum_max_wl-1) downto 0);"
-        vhdl_str *= " -- Output signal with adjusted wordlength\n"
-    else
-        signal_output_wl_adjusted_name = signal_output_name
-    end
+    vhdl_str *= "signal $(signal_output_wl_adjusted_name) : std_logic_vector($(inputsum_max_wl-1) downto 0);"
+    vhdl_str *= " -- Output signal with adjusted wordlength\n"
 
     # Left
     signal_left_name = "x_in_left_c$(input_values[1])"
@@ -258,6 +254,10 @@ function adder_generation_vhdl(
     if minimum(input_shifts) < 0
         vhdl_str *= "\t$(signal_output_name) <= "
         vhdl_str *= "$(signal_output_wl_adjusted_name)($(addernode_wl+abs(input_shifts[1])-1) downto $(abs(input_shifts[1])))"
+        vhdl_str *= ";\n"
+    else
+        vhdl_str *= "\t$(signal_output_name) <= "
+        vhdl_str *= "$(signal_output_wl_adjusted_name)($(addernode_wl-1) downto 0)"
         vhdl_str *= ";\n"
     end
     vhdl_str *= "\t$(port_names[3]) <= $(signal_output_name);\n"
