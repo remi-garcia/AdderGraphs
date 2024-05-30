@@ -127,4 +127,6 @@ export write_vhdl
 export hls_addergraph_generation
 export write_hls
 
+export read_hcub_output
+
 end # module
