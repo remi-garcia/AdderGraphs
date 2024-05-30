@@ -63,6 +63,7 @@ include("addernode.jl")
 include("addergraph.jl")
 include("vhdl.jl")
 include("hls.jl")
+include("hcub.jl")
 
 # Utils
 export odd
