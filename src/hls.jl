@@ -5,6 +5,11 @@ function variable_naming(addernode::AdderNode)
     return (variable_input_left, variable_input_right, variable_output)
 end
 
+function variable_naming(dsp_value::Int)
+    variable_output = "x_O_$(dsp_value)"
+    return variable_output
+end
+
 function variable_wl(addernode::AdderNode, wordlength_in::Int)
     addernode_wl = get_adder_wordlength(addernode, wordlength_in)
     input_wls = get_input_wordlengths(addernode, wordlength_in)
@@ -183,9 +188,16 @@ function hls_addergraph_generation(
             continue
         end
         output_name = output_naming_hls(output_value)
-        addernode = get_output_addernode(addergraph, output_value)
         shift = round(Int, log2(abs(output_value)/odd(abs(output_value))))
-        hls_str *= ", ap_$(twos_complement ? "" : "u")int<$(get_adder_wordlength(addernode, wordlength_in)+shift)> &$(output_name)"
+        wl_adder_dsp = 0
+        if !done_with_dsp(addergraph, output_value)
+            addernode = get_output_addernode(addergraph, output_value)
+            wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
+        else
+            dsp_value = get_output_dsp(addergraph, output_value)
+            wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
+        end
+        hls_str *= ", ap_$(twos_complement ? "" : "u")int<$(wl_adder_dsp+shift)> &$(output_name)"
     end
     hls_str *= ") {\n"
 
@@ -203,11 +215,18 @@ function hls_addergraph_generation(
     for output_value in output_values
         if output_value == 0
             continue
-        end
-        addernode = get_output_addernode(addergraph, output_value)
+        end        
         output_name = variable_output_naming(output_value)
         shift = round(Int, log2(abs(output_value)/odd(abs(output_value))))
-        hls_str *= "\tap_$(twos_complement ? "" : "u")int<$(get_adder_wordlength(addernode, wordlength_in)+shift)> $(output_name);\n"
+        wl_adder_dsp = 0
+        if !done_with_dsp(addergraph, output_value)
+            addernode = get_output_addernode(addergraph, output_value)
+            wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
+        else
+            dsp_value = get_output_dsp(addergraph, output_value)
+            wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
+        end
+        hls_str *= "\tap_$(twos_complement ? "" : "u")int<$(wl_adder_dsp+shift)> $(output_name);\n"
     end
 
     hls_str *= "\n"
@@ -227,13 +246,26 @@ function hls_addergraph_generation(
         hls_str *= "\t$(variable_output_name) = $(function_naming(addernode))($(variable_left_output_name), $(variable_right_output_name));\n"
     end
 
+    for dsp_value in get_dsp(addergraph)
+        variable_output_name = variable_naming(dsp_value)
+        hls_str *= "\t#pragma HLS bind_op variable=$(variable_output_name) op=mul impl=dsp latency=0\n"
+        hls_str *= "\t$(variable_output_name) = $(dsp_value)*$(variable_input_name);\n"
+    end
+
     for output_value in output_values
         if output_value == 0
             continue
         end
-        addernode = get_output_addernode(addergraph, output_value)
+        wl_adder_dsp = 0
+        variable_output_name = ""
+        if !done_with_dsp(addergraph, output_value)
+            addernode = get_output_addernode(addergraph, output_value)
+            _, _, variable_output_name = variable_naming(addernode)
+        else
+            dsp_value = get_output_dsp(addergraph, output_value)
+            variable_output_name = variable_naming(dsp_value)
+        end
         output_name = variable_output_naming(output_value)
-        _, _, variable_output_name = variable_naming(addernode)
         shift = round(Int, log2(abs(output_value)/odd(abs(output_value))))
         hls_str *= "\t$(output_name) = $(variable_output_name)$(shift > 0 ? " << $(shift)" : "");\n"
         ag_output_name = output_naming_hls(output_value)
