@@ -866,12 +866,228 @@ end
 
 
 
+
+function vhdl_test_generation(
+        addergraph::AdderGraph;
+        wordlength_in::Int,
+        with_clk::Bool=true,
+        verbose::Bool=false,
+        entity_name::String="",
+        input_filename::String="test.input",
+        output_filename::String="test.output",
+        kwargs...
+    )
+    output_values = unique(get_outputs(addergraph))
+
+    vhdl_str = ""
+    if isempty(entity_name)
+        ag_entity_name = entity_naming(addergraph)
+        entity_name = "TEST_"*ag_entity_name
+    end
+    vhdl_str *= """
+    --------------------------------------------------------------------------------
+    --                      $(entity_name)
+    -- VHDL generated for testing $(ag_entity_name)
+    -- Authors: Rémi Garcia
+    --------------------------------------------------------------------------------
+    -- Input signals: $(with_clk ? "clk " : "")input_x
+    -- Output signals: $(join([output_naming_vhdl(output_value) for output_value in output_values], " "))
+
+    library ieee;
+    use ieee.std_logic_1164.all;
+    use ieee.numeric_std.all;
+    library std;\n
+    """
+
+    # Entity
+    vhdl_str *= """
+    -- Generation of tests
+    """
+
+    vhdl_str *= "entity $(entity_name) is\n"
+    vhdl_str *= "end entity;\n"
+    vhdl_str *= "\n"
+
+    # Architecture
+    vhdl_str *= """
+    architecture behavioral of $(entity_name) is
+    """
+    vhdl_str *= "\tcomponent $(ag_entity_name) is"
+
+    port_str = "\t\tport (\n"
+    # vhdl_str *= "\t\tclk : in std_logic;"
+    # vhdl_str *= " -- Clock\n"
+
+    # Always provide input clock for correct power results with flopoco script
+    # if pipeline
+    if with_clk
+        port_str *= "\t\t\tclk : in std_logic;"
+        port_str *= " -- Clock\n"
+    end
+    # end
+    port_str *= "\t\t\tinput_x : in std_logic_vector($(wordlength_in-1) downto 0);"
+    port_str *= " -- Input\n"
+    if length(output_values) >= 2
+        for output_value in output_values[1:(end-1)]
+            output_name = output_naming_vhdl(output_value)
+            addernode = get_output_addernode(addergraph, output_value)
+            port_str *= "\t\t\t$(output_name): out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);"
+            port_str *= " -- Output $(output_value)\n"
+        end
+    end
+    output_value = output_values[end]
+    output_name = output_naming_vhdl(output_value)
+    addernode = get_output_addernode(addergraph, output_value)
+    port_str *= "\t\t\t$(output_name): out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0)"
+    port_str *= " -- Output $(output_value)\n"
+    port_str *= "\t\t);\n"
+
+    vhdl_str *= port_str
+    vhdl_str *= "\tend component;\n\n"
+
+    vhdl_str *= "signal input_x : in std_logic_vector($(wordlength_in-1) downto 0);\n"
+    for output_value in output_values
+        output_name = output_naming_vhdl(output_value)
+        addernode = get_output_addernode(addergraph, output_value)
+        vhdl_str *= "signal $(output_name): out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);\n"
+    end
+
+    vhdl_str *= "signal clk : in std_logic;\n"
+    vhdl_str *= "signal rst : in std_logic;\n\n"
+
+    vhdl_str *= "\tfunction testLine(testCounter: integer; expectedOutputS: string(1 to 10000)"
+    for output_value in output_values
+        output_name = output_naming_vhdl(output_value)
+        addernode = get_output_addernode(addergraph, output_value)
+        vhdl_str *= "; $(output_name): std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0)"
+    end
+    vhdl_str *= ") return boolean is\n"
+
+    vhdl_str *= "\t\tvariable expectedOutput: line;\n"
+    vhdl_str *= "\t\tvariable testSuccess: boolean;\n"
+    for output_value in output_values
+        output_name = output_naming_vhdl(output_value)
+        addernode = get_output_addernode(addergraph, output_value)
+        vhdl_str *= "\t\tvariable testSuccess_$(output_name): boolean;\n"
+        vhdl_str *= "\t\tvariable expected_$(output_name): std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);\n"
+    end
+
+    vhdl_str *= "\tbegin\n"
+    vhdl_str *= "\t\twrite(expectedOutput, expectedOutputS);\n\n"
+    for output_value in output_values
+        output_name = output_naming_vhdl(output_value)
+        addernode = get_output_addernode(addergraph, output_value)
+        vhdl_str *= "\t\ttestSuccess_$(output_name) := false;\n"
+        vhdl_str *= "\t\tread(expectedOutput, expected_$(output_name));\n"
+        vhdl_str *= "\t\tif $(output_name) = to_stdlogicvector(expected_$(output_name)) then\n"
+        vhdl_str *= "\t\t\ttestSuccess_$(output_name) := true;\n"
+        vhdl_str *= "\t\tend if;\n\n"
+    end
+
+    vhdl_str *= "\t\ttestSuccess := true"
+    for output_value in output_values
+        output_name = output_naming_vhdl(output_value)
+        addernode = get_output_addernode(addergraph, output_value)
+        vhdl_str *= " and testSuccess_$(output_name)"
+    end
+    vhdl_str *= ";\n"
+    vhdl_str *= "\t\treturn testSuccess;\n"
+    vhdl_str *= "\tend testLine;\n\n"
+
+
+    vhdl_str *= "begin\n"
+    vhdl_str *= """
+        -- Ticking clock signal
+        process
+        begin
+            clk <= '0';
+            wait for 5 ns;
+            clk <= '1';
+            wait for 5 ns;
+        end process;
+    """
+
+    vhdl_str *= "\n\ttest: $(ag_entity_name)\n"
+    vhdl_str *= "\n\t\tport map (\n"
+    vhdl_str *= "\t\t\tinput_x => input_x"
+    if with_clk
+        vhdl_str *= ",\n\t\t\tclk => clk"
+    end
+    for output_value in output_values
+        output_name = output_naming_vhdl(output_value)
+        addernode = get_output_addernode(addergraph, output_value)
+        vhdl_str *= ",\n\t\t\t$(output_name) => $(output_name)"
+    end
+    vhdl_str *= "\n\t\t);\n\n"
+
+    vhdl_str *= "\tprocess\n"
+    vhdl_str *= "\t\tvariable input : line;\n"
+    vhdl_str *= "\t\tfile inputsFile : text is \"$(input_filename)\";\n"
+    vhdl_str *= "\t\tvariable v_input_x : in bit_vector($(wordlength_in-1) downto 0);\n"
+
+    vhdl_str *= """
+        begin
+            rst <= '1';
+            wait for 10 ns;
+            rst <= '0';
+    """
+
+    vhdl_str *= "\t\twhile not endfile(inputsFile) loop\n"
+    vhdl_str *= "\t\t\treadline(inputsFile, input);\n"
+    vhdl_str *= "\t\t\tread(input, v_input_x);\n"
+    vhdl_str *= "\t\t\tinput_x <= to_stdlogicvector(v_input_x);\n"
+    vhdl_str *= "\t\t\twait for 10 ns;\n"
+    vhdl_str *= "\t\tend loop;\n"
+    vhdl_str *= "\t\twait for 100 ns;\n"
+    vhdl_str *= "\tend process;\n\n"
+
+    vhdl_str *= "\tprocess\n"
+    vhdl_str *= "\t\tvariable expectedOutput : line;\n"
+    vhdl_str *= "\t\tvariable expectedOutputString : string;\n"
+    vhdl_str *= "\t\tfile outputsFile : text is \"$(output_filename)\";\n"
+    vhdl_str *= "\t\tvariable testCounter := 0;\n"
+    vhdl_str *= "\t\tvariable errorCounter := 0;\n"
+    vhdl_str *= "\t\tvariable testSuccess : boolean;\n"
+
+    vhdl_str *= "\tbegin\n"
+    vhdl_str *= "\t\twait for 12 ns;\n"
+
+    vhdl_str *= "\t\twhile not endfile(outputsFile) loop\n"
+    vhdl_str *= "\t\t\ttestCounter := testCounter + 1;\n"
+    vhdl_str *= "\t\t\treadline(outputsFile, expectedOutput);\n"
+    vhdl_str *= "\t\t\texpectedOutputString := expectedOutput.all & (expectedOutput'Length+1 to 10000 => ' ');\n"
+    vhdl_str *= "\t\t\ttestSuccess := testLine(testCounter, expectedOutputString"
+
+    for output_value in output_values
+        output_name = output_naming_vhdl(output_value)
+        addernode = get_output_addernode(addergraph, output_value)
+        vhdl_str *= ", $(output_name)"
+    end
+    vhdl_str *= ");\n"
+
+    vhdl_str *= "\t\t\tif not testSuccess then\n"
+    vhdl_str *= "\t\t\t\terrorCounter := errorCounter + 1;\n"
+    vhdl_str *= "\t\t\tend if;\n"
+    vhdl_str *= "\t\t\twait for 10 ns;\n"
+    vhdl_str *= "\t\tend loop;\n"
+    vhdl_str *= "\t\treport integer'image(errorCounter) & \" error(s) encoutered.\" severity note;\n"
+    vhdl_str *= "\t\treport \"End of simulation after \" & integer'image(testCounter) & \" tests\" severity note;\n"
+    vhdl_str *= "\tend process;\n\n"
+
+    vhdl_str *= "end architecture;\n"
+
+    return vhdl_str
+end
+
+
 function write_vhdl(
         addergraph::AdderGraph;
         vhdl_filename::String="addergraph.vhdl",
+        vhdl_test_filename::String="addergraph_test.vhdl",
         no_addergraph::Bool=false,
         use_tables::Bool=false,
         verbose::Bool=false,
+        with_tests::Bool=true,
         kwargs...
     )
     vhdl_str = ""
@@ -884,6 +1100,13 @@ function write_vhdl(
     end
     open(vhdl_filename, "w") do writefile
         write(writefile, vhdl_str)
+    end
+    if with_tests
+        vhdl_str = ""
+        vhdl_str = vhdl_test_generation(addergraph; verbose=verbose, kwargs...)
+        open(vhdl_test_filename, "w") do writefile
+            write(writefile, vhdl_str)
+        end
     end
     return nothing
 end
