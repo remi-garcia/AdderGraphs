@@ -34,10 +34,14 @@ mutable struct AdderGraph
     origin::AdderNode
     constants::Vector{AdderNode}
     outputs::Vector{Int}
+    dsp::Vector{Int}
 end
 
+function AdderGraph(c::Vector{AdderNode}, v::Vector{Int}, dsp::Vector{Int})
+    return AdderGraph(origin_addernode(), c, v, dsp)
+end
 function AdderGraph(c::Vector{AdderNode}, v::Vector{Int})
-    return AdderGraph(origin_addernode(), c, v)
+    return AdderGraph(c, v, Vector{Int}())
 end
 function AdderGraph()
     return AdderGraph(Vector{AdderNode}(), Vector{Int}())
@@ -63,6 +67,7 @@ include("addernode.jl")
 include("addergraph.jl")
 include("vhdl.jl")
 include("hls.jl")
+include("hcub.jl")
 
 # Utils
 export odd
@@ -81,10 +86,13 @@ export set_truncation!
 export length
 export isempty
 export get_nodes
+export get_dsp
 export push_node!
 export push_output!
+export push_dsp!
 export get_outputs
 export get_origin
+export done_with_dsp
 export compute_total_nb_onebit_adders
 export compute_all_nb_onebit_adders
 export get_addernodes_by_value
@@ -126,5 +134,7 @@ export write_vhdl
 # HLS
 export hls_addergraph_generation
 export write_hls
+
+export read_hcub_output
 
 end # module

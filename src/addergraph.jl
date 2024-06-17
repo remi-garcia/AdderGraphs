@@ -14,6 +14,14 @@ function get_nodes(addergraph::AdderGraph)
     return addergraph.constants
 end
 
+function get_dsp(addergraph::AdderGraph)
+    return addergraph.dsp
+end
+
+function done_with_dsp(addergraph::AdderGraph, output_value::Int)
+    return output_value in get_dsp(addergraph)
+end
+
 function push_node!(addergraph::AdderGraph, addernode::AdderNode)
     push!(addergraph.constants, addernode)
     return addergraph
@@ -28,8 +36,22 @@ function push_output!(addergraph::AdderGraph, output_value::Int)
     return addergraph
 end
 
+function push_dsp!(addergraph::AdderGraph, dsp_value::Int)
+    push!(addergraph.dsp, dsp_value)
+    return addergraph
+end
+
 function get_outputs(addergraph::AdderGraph)
     return addergraph.outputs
+end
+
+function get_output_dsp(addergraph::AdderGraph, output_value::Int)
+    @assert odd(abs(output_value)) in get_dsp(addergraph)
+    return odd(abs(output_value))
+end
+
+function get_dsp_wordlength(dsp_value::Int, wordlength_in::Int)
+    return round(Int, log2(dsp_value * (2^wordlength_in - 1)), RoundUp)
 end
 
 function get_origin(addergraph::AdderGraph)
@@ -110,6 +132,8 @@ function read_addergraph(s::String)
             )
         elseif startswith(val, "'O'")
             push_output!(addergraph, parse(Int, split(val, ",")[2][2:(end-1)]))
+        elseif startswith(val, "'D'")
+            push_dsp!(addergraph, parse(Int, split(val, ",")[2][2:(end-1)]))
         end
     end
     return addergraph
@@ -172,6 +196,7 @@ function write_addergraph(addergraph::AdderGraph; pipeline::Bool=false, flopoco_
     output_values = Vector{Int}()
     firstcoefnocomma = true
     coefficients = get_outputs(addergraph)
+    dsp_values = get_dsp(addergraph)
     for coefind in 1:length(coefficients)
         coef = coefficients[coefind]
         if coef != 0
@@ -184,18 +209,25 @@ function write_addergraph(addergraph::AdderGraph; pipeline::Bool=false, flopoco_
                 else
                     firstcoefnocomma = false
                 end
-                if !pipeline
-                    adderstring *= "{'O',[$(abs(coef))],$(maximum_depth),[$(value)],$(maximum(get_depth.(get_addernodes_by_value(addergraph, value)))),$(shift)}"
+                if abs(value) in dsp_values
+                    adderstring *= "{'O',[$(abs(coef))],$(maximum_depth),[$(value)],-1,$(shift)}"
                 else
-                    adderstring *= "{'O',[$(abs(coef))],$(maximum_depth),[$(value)],$(maximum_depth),$(shift)}"
+                    if !pipeline
+                        adderstring *= "{'O',[$(abs(coef))],$(maximum_depth),[$(value)],$(maximum(get_depth.(get_addernodes_by_value(addergraph, value)))),$(shift)}"
+                    else
+                        adderstring *= "{'O',[$(abs(coef))],$(maximum_depth),[$(value)],$(maximum_depth),$(shift)}"
+                    end
                 end
             end
         end
     end
+    for dsp_val in dsp_values
+        adderstring *= ",{'D',[$(dsp_val)]}"
+    end
     if pipeline
         for val in keys(need_register)
             for current_depth in need_register[val]
-                adderstring *= ",{'R',[$val],$(current_depth),[$val],$(current_depth-1)}"
+                adderstring *= ",{'R',[$(val)],$(current_depth),[$(val)],$(current_depth-1)}"
             end
         end
     end
@@ -221,9 +253,13 @@ end
 
 function isvalid(addergraph::AdderGraph)
     addernodes = get_nodes(addergraph)
+    dsp_values = get_dsp(addergraph)
     node_values = get_value.(addernodes)
     for output in odd.(abs.(get_outputs(addergraph)))
         if output == 1
+            continue
+        end
+        if output in dsp_values
             continue
         end
         if !(output in node_values)
@@ -253,6 +289,9 @@ function _evaluate(addergraph::AdderGraph, input_value::Int; wlIn::Int, apply_in
     #     return input_value*get_outputs(addergraph)
     # end
     nodes_value = Dict{Int, Int}([1=>input_value])
+    for dsp_val in get_dsp(addergraph)
+        nodes_value[dsp_val] = nodes_value*input_value
+    end
     for addernode in get_nodes(addergraph)
         nodes_value[get_value(addernode)] = evaluate_node(addernode, [nodes_value[get_input_addernode_values(addernode)[i]] for i in 1:length(get_input_addernodes(addernode))], wlIn=wlIn, apply_truncations=apply_internal_truncations, verbose=verbose)
     end
