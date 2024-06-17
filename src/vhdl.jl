@@ -926,8 +926,8 @@ function vhdl_test_generation(
         with_clk::Bool=true,
         verbose::Bool=false,
         entity_name::String="",
-        input_filename::String="test.input",
-        output_filename::String="test.output",
+        inputs_filename::String="test.input",
+        outputs_filename::String="test.output",
         kwargs...
     )
     output_values = unique(get_outputs(addergraph))
@@ -1077,7 +1077,7 @@ function vhdl_test_generation(
 
     vhdl_str *= "\tprocess\n"
     vhdl_str *= "\t\tvariable input : line;\n"
-    vhdl_str *= "\t\tfile inputsFile : text is \"$(input_filename)\";\n"
+    vhdl_str *= "\t\tfile inputsFile : text is \"$(inputs_filename)\";\n"
     vhdl_str *= "\t\tvariable v_input_x : in bit_vector($(wordlength_in-1) downto 0);\n"
 
     vhdl_str *= """
@@ -1099,7 +1099,7 @@ function vhdl_test_generation(
     vhdl_str *= "\tprocess\n"
     vhdl_str *= "\t\tvariable expectedOutput : line;\n"
     vhdl_str *= "\t\tvariable expectedOutputString : string;\n"
-    vhdl_str *= "\t\tfile outputsFile : text is \"$(output_filename)\";\n"
+    vhdl_str *= "\t\tfile outputsFile : text is \"$(outputs_filename)\";\n"
     vhdl_str *= "\t\tvariable testCounter := 0;\n"
     vhdl_str *= "\t\tvariable errorCounter := 0;\n"
     vhdl_str *= "\t\tvariable testSuccess : boolean;\n"
@@ -1162,6 +1162,48 @@ function write_vhdl(
         open(vhdl_test_filename, "w") do writefile
             write(writefile, vhdl_str)
         end
+        write_tests(addergraph; kwargs...)
     end
+    return nothing
+end
+
+
+function write_tests(
+        addergraph::AdderGraph;
+        inputs_test::Vector{Int}=Vector{Int}(),
+        wordlength_in::Int,
+        inputs_filename::String="test.input",
+        outputs_filename::String="test.output",
+        signed::Bool=true,
+        kwargs...
+    )
+    output_values = unique(get_outputs(addergraph))
+    if isempty(inputs_test)
+        if signed
+            inputs_test = collect((-2^(wordlength_in-1)):(2^(wordlength_in-1)-1))
+        else
+            inputs_test = collect(0:(2^wordlength_in-1))
+        end
+    end
+    @assert minimum(inputs_test) >= -2^(wordlength_in-signed)
+    @assert maximum(inputs_test) <= 2^(wordlength_in-signed)-1
+    open(inputs_filename, "w") do writefile_inputs
+        open(outputs_filename, "w") do writefile_outputs
+            for curr_input in inputs_test
+                write(writefile_inputs, bitstring(curr_input)[(end-wordlength_in+1):end])
+                write(writefile_inputs, "\n")
+                output_value = output_values[1]
+                addernode = get_output_addernode(addergraph, output_value)
+                write(writefile_outputs, bitstring(output_value*curr_input)[(end-get_adder_wordlength(addernode, wordlength_in)-1+1):end])
+                for output_value in output_values[2:end]
+                    addernode = get_output_addernode(addergraph, output_value)
+                    write(writefile_outputs, " ")
+                    write(writefile_outputs, bitstring(output_value*curr_input)[(end-get_adder_wordlength(addernode, wordlength_in)-1+1):end])
+                end
+                write(writefile_outputs, "\n")
+            end
+        end
+    end
+
     return nothing
 end
