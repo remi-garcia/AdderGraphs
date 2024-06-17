@@ -357,7 +357,7 @@ function vhdl_addergraph_generation(
                 dsp_value = get_output_dsp(addergraph, output_value)
                 wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
             end
-            port_str *= "\t\t$(output_name): out std_logic_vector($(wl_adder_dsp+shift-1) downto 0);"
+            port_str *= "\t\t$(output_name) : out std_logic_vector($(wl_adder_dsp+shift-1) downto 0);"
             port_str *= " -- Output $(output_value)\n"
         end
     end
@@ -372,7 +372,7 @@ function vhdl_addergraph_generation(
         dsp_value = get_output_dsp(addergraph, output_value)
         wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
     end
-    port_str *= "\t\t$(output_name): out std_logic_vector($(wl_adder_dsp+shift-1) downto 0)"
+    port_str *= "\t\t$(output_name) : out std_logic_vector($(wl_adder_dsp+shift-1) downto 0)"
     port_str *= " -- Output $(output_value)\n"
     port_str *= "\t);\n"
 
@@ -714,14 +714,14 @@ function vhdl_output_products(
         for output_value in output_values[1:(end-1)]
             output_name = output_naming_vhdl(output_value)
             addernode = get_output_addernode(addergraph, output_value)
-            vhdl_str *= "\t\t$(output_name): out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);"
+            vhdl_str *= "\t\t$(output_name) : out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);"
             vhdl_str *= " -- Output $(output_value)\n"
         end
     end
     output_value = output_values[end]
     output_name = output_naming_vhdl(output_value)
     addernode = get_output_addernode(addergraph, output_value)
-    vhdl_str *= "\t\t$(output_name): out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0)"
+    vhdl_str *= "\t\t$(output_name) : out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0)"
     vhdl_str *= " -- Output $(output_value)\n"
     vhdl_str *= "\t);\n"
     vhdl_str *= "end entity;\n"
@@ -836,14 +836,14 @@ function vhdl_output_tables(
         for output_value in output_values[1:(end-1)]
             output_name = output_naming_vhdl(output_value)
             addernode = get_output_addernode(addergraph, output_value)
-            vhdl_str *= "\t\t$(output_name): out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);"
+            vhdl_str *= "\t\t$(output_name) : out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);"
             vhdl_str *= " -- Output $(output_value)\n"
         end
     end
     output_value = output_values[end]
     output_name = output_naming_vhdl(output_value)
     addernode = get_output_addernode(addergraph, output_value)
-    vhdl_str *= "\t\t$(output_name): out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0)"
+    vhdl_str *= "\t\t$(output_name) : out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0)"
     vhdl_str *= " -- Output $(output_value)\n"
     vhdl_str *= "\t);\n"
     vhdl_str *= "end entity;\n"
@@ -868,7 +868,7 @@ function vhdl_output_tables(
         output_name = signal_output_naming(abs(output_value))
         vhdl_str *= """
         \n\ttype lut_$(output_name) is array (natural range 0 to $(2^(wordlength_in)-1)) of std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);
-        \tsignal bitcount_$(output_name): lut_$(output_name) := (
+        \tsignal bitcount_$(output_name) : lut_$(output_name) := (
         """
         vhdl_str *= "\t\t"
         for i in 1:(2^(wordlength_in)-1)
@@ -949,7 +949,9 @@ function vhdl_test_generation(
     library ieee;
     use ieee.std_logic_1164.all;
     use ieee.numeric_std.all;
-    library std;\n
+    library std;
+    use std.textio.all;
+    library work;\n
     """
 
     # Entity
@@ -984,14 +986,14 @@ function vhdl_test_generation(
         for output_value in output_values[1:(end-1)]
             output_name = output_naming_vhdl(output_value)
             addernode = get_output_addernode(addergraph, output_value)
-            port_str *= "\t\t\t$(output_name): out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);"
+            port_str *= "\t\t\t$(output_name) : out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);"
             port_str *= " -- Output $(output_value)\n"
         end
     end
     output_value = output_values[end]
     output_name = output_naming_vhdl(output_value)
     addernode = get_output_addernode(addergraph, output_value)
-    port_str *= "\t\t\t$(output_name): out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0)"
+    port_str *= "\t\t\t$(output_name) : out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0)"
     port_str *= " -- Output $(output_value)\n"
     port_str *= "\t\t);\n"
 
@@ -1002,27 +1004,27 @@ function vhdl_test_generation(
     for output_value in output_values
         output_name = output_naming_vhdl(output_value)
         addernode = get_output_addernode(addergraph, output_value)
-        vhdl_str *= "signal $(output_name): out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);\n"
+        vhdl_str *= "signal $(output_name) : out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);\n"
     end
 
     vhdl_str *= "signal clk : in std_logic;\n"
     vhdl_str *= "signal rst : in std_logic;\n\n"
 
-    vhdl_str *= "\tfunction testLine(testCounter: integer; expectedOutputS: string(1 to 10000)"
+    vhdl_str *= "\tfunction testLine(testCounter : integer; expectedOutputS : string(1 to 10000)"
     for output_value in output_values
         output_name = output_naming_vhdl(output_value)
         addernode = get_output_addernode(addergraph, output_value)
-        vhdl_str *= "; $(output_name): std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0)"
+        vhdl_str *= "; $(output_name) : std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0)"
     end
     vhdl_str *= ") return boolean is\n"
 
-    vhdl_str *= "\t\tvariable expectedOutput: line;\n"
-    vhdl_str *= "\t\tvariable testSuccess: boolean;\n"
+    vhdl_str *= "\t\tvariable expectedOutput : line;\n"
+    vhdl_str *= "\t\tvariable testSuccess : boolean;\n"
     for output_value in output_values
         output_name = output_naming_vhdl(output_value)
         addernode = get_output_addernode(addergraph, output_value)
-        vhdl_str *= "\t\tvariable testSuccess_$(output_name): boolean;\n"
-        vhdl_str *= "\t\tvariable expected_$(output_name): std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);\n"
+        vhdl_str *= "\t\tvariable testSuccess_$(output_name) : boolean;\n"
+        vhdl_str *= "\t\tvariable expected_$(output_name) : std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);\n"
     end
 
     vhdl_str *= "\tbegin\n"
@@ -1061,7 +1063,7 @@ function vhdl_test_generation(
     """
 
     vhdl_str *= "\n\ttest: $(ag_entity_name)\n"
-    vhdl_str *= "\n\t\tport map (\n"
+    vhdl_str *= "\t\tport map (\n"
     vhdl_str *= "\t\t\tinput_x => input_x"
     if with_clk
         vhdl_str *= ",\n\t\t\tclk => clk"
@@ -1091,7 +1093,7 @@ function vhdl_test_generation(
     vhdl_str *= "\t\t\tinput_x <= to_stdlogicvector(v_input_x);\n"
     vhdl_str *= "\t\t\twait for 10 ns;\n"
     vhdl_str *= "\t\tend loop;\n"
-    vhdl_str *= "\t\twait for 100 ns;\n"
+    vhdl_str *= "\t\twait for $(10*(get_adder_depth(addergraph)+2+1)) ns; -- For pipelining\n"
     vhdl_str *= "\tend process;\n\n"
 
     vhdl_str *= "\tprocess\n"
