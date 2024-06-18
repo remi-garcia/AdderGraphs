@@ -713,15 +713,29 @@ function vhdl_output_products(
     if length(output_values) >= 2
         for output_value in output_values[1:(end-1)]
             output_name = output_naming_vhdl(output_value)
-            addernode = get_output_addernode(addergraph, output_value)
-            vhdl_str *= "\t\t$(output_name) : out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);"
+            wl_adder_dsp = 0
+            if !done_with_dsp(addergraph, output_value)
+                addernode = get_output_addernode(addergraph, output_value)
+                wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
+            else
+                dsp_value = get_output_dsp(addergraph, output_value)
+                wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
+            end
+            vhdl_str *= "\t\t$(output_name) : out std_logic_vector($(wl_adder_dsp-1) downto 0);"
             vhdl_str *= " -- Output $(output_value)\n"
         end
     end
     output_value = output_values[end]
     output_name = output_naming_vhdl(output_value)
-    addernode = get_output_addernode(addergraph, output_value)
-    vhdl_str *= "\t\t$(output_name) : out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0)"
+    wl_adder_dsp = 0
+    if !done_with_dsp(addergraph, output_value)
+        addernode = get_output_addernode(addergraph, output_value)
+        wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
+    else
+        dsp_value = get_output_dsp(addergraph, output_value)
+        wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
+    end
+    vhdl_str *= "\t\t$(output_name) : out std_logic_vector($(wl_adder_dsp-1) downto 0)"
     vhdl_str *= " -- Output $(output_value)\n"
     vhdl_str *= "\t);\n"
     vhdl_str *= "end entity;\n"
@@ -737,9 +751,16 @@ function vhdl_output_products(
     vhdl_str *= "signal $(signal_input_name) : std_logic_vector($(signal_input_wl-1) downto 0);\n"
 
     for output_value in output_values
-        addernode = get_output_addernode(addergraph, output_value)
+        wl_adder_dsp = 0
+        if !done_with_dsp(addergraph, output_value)
+            addernode = get_output_addernode(addergraph, output_value)
+            wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
+        else
+            dsp_value = get_output_dsp(addergraph, output_value)
+            wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
+        end
         output_name = signal_output_naming(output_value)
-        vhdl_str *= "signal $(output_name) : std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);\n"
+        vhdl_str *= "signal $(output_name) : std_logic_vector($(wl_adder_dsp-1) downto 0);\n"
     end
 
     if force_dsp
@@ -773,8 +794,15 @@ function vhdl_output_products(
     end
 
     for output_value in output_values
-        addernode = get_output_addernode(addergraph, output_value)
-        vhdl_str *= "\t$(signal_output_naming(output_value)) <= std_logic_vector(to_signed($(output_value)*to_integer(signed($signal_input_name)), $(get_adder_wordlength(addernode, wordlength_in))));\n"
+        wl_adder_dsp = 0
+        if !done_with_dsp(addergraph, output_value)
+            addernode = get_output_addernode(addergraph, output_value)
+            wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
+        else
+            dsp_value = get_output_dsp(addergraph, output_value)
+            wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
+        end
+        vhdl_str *= "\t$(signal_output_naming(output_value)) <= std_logic_vector(to_signed($(output_value)*to_integer(signed($signal_input_name)), $(wl_adder_dsp)));\n"
     end
 
     vhdl_str *= "end architecture;\n"
@@ -835,15 +863,29 @@ function vhdl_output_tables(
     if length(output_values) >= 2
         for output_value in output_values[1:(end-1)]
             output_name = output_naming_vhdl(output_value)
-            addernode = get_output_addernode(addergraph, output_value)
-            vhdl_str *= "\t\t$(output_name) : out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);"
+            wl_adder_dsp = 0
+            if !done_with_dsp(addergraph, output_value)
+                addernode = get_output_addernode(addergraph, output_value)
+                wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
+            else
+                dsp_value = get_output_dsp(addergraph, output_value)
+                wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
+            end
+            vhdl_str *= "\t\t$(output_name) : out std_logic_vector($(wl_adder_dsp-1) downto 0);"
             vhdl_str *= " -- Output $(output_value)\n"
         end
     end
     output_value = output_values[end]
     output_name = output_naming_vhdl(output_value)
-    addernode = get_output_addernode(addergraph, output_value)
-    vhdl_str *= "\t\t$(output_name) : out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0)"
+    wl_adder_dsp = 0
+    if !done_with_dsp(addergraph, output_value)
+        addernode = get_output_addernode(addergraph, output_value)
+        wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
+    else
+        dsp_value = get_output_dsp(addergraph, output_value)
+        wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
+    end
+    vhdl_str *= "\t\t$(output_name) : out std_logic_vector($(wl_adder_dsp-1) downto 0)"
     vhdl_str *= " -- Output $(output_value)\n"
     vhdl_str *= "\t);\n"
     vhdl_str *= "end entity;\n"
@@ -864,10 +906,17 @@ function vhdl_output_tables(
         end
         wlout = round(Int, log2((2^(wordlength_in) - 1)*abs(output_value)), RoundUp)
         lut_outputs = Vector{Vector{Bool}}([reverse(digits(abs(output_value)*i, base=2, pad=wlout))[1:wlout] for i in 0:((2^wordlength_in)-1)])
-        addernode = get_output_addernode(addergraph, output_value)
+        wl_adder_dsp = 0
+        if !done_with_dsp(addergraph, output_value)
+            addernode = get_output_addernode(addergraph, output_value)
+            wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
+        else
+            dsp_value = get_output_dsp(addergraph, output_value)
+            wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
+        end
         output_name = signal_output_naming(abs(output_value))
         vhdl_str *= """
-        \n\ttype lut_$(output_name) is array (natural range 0 to $(2^(wordlength_in)-1)) of std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);
+        \n\ttype lut_$(output_name) is array (natural range 0 to $(2^(wordlength_in)-1)) of std_logic_vector($(wl_adder_dsp-1) downto 0);
         \tsignal bitcount_$(output_name) : lut_$(output_name) := (
         """
         vhdl_str *= "\t\t"
@@ -881,7 +930,7 @@ function vhdl_output_tables(
         vhdl_str *= "\t);\n"
         vhdl_str *= "attribute rom_style of bitcount_$(output_name) : signal is \"distributed\";\n"
 
-        vhdl_str *= "signal $(signal_output_naming(output_value)) : std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);\n"
+        vhdl_str *= "signal $(signal_output_naming(output_value)) : std_logic_vector($(wl_adder_dsp-1) downto 0);\n"
     end
 
     vhdl_str *= "\nbegin\n"
@@ -907,7 +956,6 @@ function vhdl_output_tables(
     end
 
     for output_value in output_values
-        addernode = get_output_addernode(addergraph, output_value)
         output_name = signal_output_naming(abs(output_value))
         vhdl_str *= "\t$(signal_output_naming(output_value)) <= $(output_value < 0 ? "-" : "")bitcount_$(output_name)(TO_INTEGER(signed($(signal_input_name))));\n"
     end
@@ -967,7 +1015,7 @@ function vhdl_test_generation(
     vhdl_str *= """
     architecture behavioral of $(entity_name) is
     """
-    vhdl_str *= "\tcomponent $(ag_entity_name) is"
+    vhdl_str *= "\tcomponent $(ag_entity_name) is\n"
 
     port_str = "\t\tport (\n"
     # vhdl_str *= "\t\tclk : in std_logic;"
@@ -985,15 +1033,29 @@ function vhdl_test_generation(
     if length(output_values) >= 2
         for output_value in output_values[1:(end-1)]
             output_name = output_naming_vhdl(output_value)
-            addernode = get_output_addernode(addergraph, output_value)
-            port_str *= "\t\t\t$(output_name) : out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);"
+            wl_adder_dsp = 0
+            if !done_with_dsp(addergraph, output_value)
+                addernode = get_output_addernode(addergraph, output_value)
+                wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
+            else
+                dsp_value = get_output_dsp(addergraph, output_value)
+                wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
+            end
+            port_str *= "\t\t\t$(output_name) : out std_logic_vector($(wl_adder_dsp-1) downto 0);"
             port_str *= " -- Output $(output_value)\n"
         end
     end
     output_value = output_values[end]
     output_name = output_naming_vhdl(output_value)
-    addernode = get_output_addernode(addergraph, output_value)
-    port_str *= "\t\t\t$(output_name) : out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0)"
+    wl_adder_dsp = 0
+    if !done_with_dsp(addergraph, output_value)
+        addernode = get_output_addernode(addergraph, output_value)
+        wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
+    else
+        dsp_value = get_output_dsp(addergraph, output_value)
+        wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
+    end
+    port_str *= "\t\t\t$(output_name) : out std_logic_vector($(wl_adder_dsp-1) downto 0)"
     port_str *= " -- Output $(output_value)\n"
     port_str *= "\t\t);\n"
 
@@ -1003,8 +1065,15 @@ function vhdl_test_generation(
     vhdl_str *= "signal input_x : in std_logic_vector($(wordlength_in-1) downto 0);\n"
     for output_value in output_values
         output_name = output_naming_vhdl(output_value)
-        addernode = get_output_addernode(addergraph, output_value)
-        vhdl_str *= "signal $(output_name) : out std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);\n"
+        wl_adder_dsp = 0
+        if !done_with_dsp(addergraph, output_value)
+            addernode = get_output_addernode(addergraph, output_value)
+            wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
+        else
+            dsp_value = get_output_dsp(addergraph, output_value)
+            wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
+        end
+        vhdl_str *= "signal $(output_name) : out std_logic_vector($(wl_adder_dsp-1) downto 0);\n"
     end
 
     vhdl_str *= "signal clk : in std_logic;\n"
@@ -1013,8 +1082,15 @@ function vhdl_test_generation(
     vhdl_str *= "\tfunction testLine(testCounter : integer; expectedOutputS : string(1 to 10000)"
     for output_value in output_values
         output_name = output_naming_vhdl(output_value)
-        addernode = get_output_addernode(addergraph, output_value)
-        vhdl_str *= "; $(output_name) : std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0)"
+        wl_adder_dsp = 0
+        if !done_with_dsp(addergraph, output_value)
+            addernode = get_output_addernode(addergraph, output_value)
+            wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
+        else
+            dsp_value = get_output_dsp(addergraph, output_value)
+            wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
+        end
+        vhdl_str *= "; $(output_name) : std_logic_vector($(wl_adder_dsp-1) downto 0)"
     end
     vhdl_str *= ") return boolean is\n"
 
@@ -1022,16 +1098,22 @@ function vhdl_test_generation(
     vhdl_str *= "\t\tvariable testSuccess : boolean;\n"
     for output_value in output_values
         output_name = output_naming_vhdl(output_value)
-        addernode = get_output_addernode(addergraph, output_value)
+        wl_adder_dsp = 0
+        if !done_with_dsp(addergraph, output_value)
+            addernode = get_output_addernode(addergraph, output_value)
+            wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
+        else
+            dsp_value = get_output_dsp(addergraph, output_value)
+            wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
+        end
         vhdl_str *= "\t\tvariable testSuccess_$(output_name) : boolean;\n"
-        vhdl_str *= "\t\tvariable expected_$(output_name) : std_logic_vector($(get_adder_wordlength(addernode, wordlength_in)-1) downto 0);\n"
+        vhdl_str *= "\t\tvariable expected_$(output_name) : std_logic_vector($(wl_adder_dsp-1) downto 0);\n"
     end
 
     vhdl_str *= "\tbegin\n"
     vhdl_str *= "\t\twrite(expectedOutput, expectedOutputS);\n\n"
     for output_value in output_values
         output_name = output_naming_vhdl(output_value)
-        addernode = get_output_addernode(addergraph, output_value)
         vhdl_str *= "\t\ttestSuccess_$(output_name) := false;\n"
         vhdl_str *= "\t\tread(expectedOutput, expected_$(output_name));\n"
         vhdl_str *= "\t\tif $(output_name) = to_stdlogicvector(expected_$(output_name)) then\n"
@@ -1042,7 +1124,6 @@ function vhdl_test_generation(
     vhdl_str *= "\t\ttestSuccess := true"
     for output_value in output_values
         output_name = output_naming_vhdl(output_value)
-        addernode = get_output_addernode(addergraph, output_value)
         vhdl_str *= " and testSuccess_$(output_name)"
     end
     vhdl_str *= ";\n"
@@ -1070,7 +1151,6 @@ function vhdl_test_generation(
     end
     for output_value in output_values
         output_name = output_naming_vhdl(output_value)
-        addernode = get_output_addernode(addergraph, output_value)
         vhdl_str *= ",\n\t\t\t$(output_name) => $(output_name)"
     end
     vhdl_str *= "\n\t\t);\n\n"
@@ -1115,7 +1195,6 @@ function vhdl_test_generation(
 
     for output_value in output_values
         output_name = output_naming_vhdl(output_value)
-        addernode = get_output_addernode(addergraph, output_value)
         vhdl_str *= ", $(output_name)"
     end
     vhdl_str *= ");\n"
@@ -1193,12 +1272,26 @@ function write_tests(
                 write(writefile_inputs, bitstring(curr_input)[(end-wordlength_in+1):end])
                 write(writefile_inputs, "\n")
                 output_value = output_values[1]
-                addernode = get_output_addernode(addergraph, output_value)
-                write(writefile_outputs, bitstring(output_value*curr_input)[(end-get_adder_wordlength(addernode, wordlength_in)-1+1):end])
-                for output_value in output_values[2:end]
+                wl_adder_dsp = 0
+                if !done_with_dsp(addergraph, output_value)
                     addernode = get_output_addernode(addergraph, output_value)
+                    wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
+                else
+                    dsp_value = get_output_dsp(addergraph, output_value)
+                    wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
+                end
+                write(writefile_outputs, bitstring(output_value*curr_input)[(end-wl_adder_dsp-1+1):end])
+                for output_value in output_values[2:end]
+                    wl_adder_dsp = 0
+                    if !done_with_dsp(addergraph, output_value)
+                        addernode = get_output_addernode(addergraph, output_value)
+                        wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
+                    else
+                        dsp_value = get_output_dsp(addergraph, output_value)
+                        wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
+                    end
                     write(writefile_outputs, " ")
-                    write(writefile_outputs, bitstring(output_value*curr_input)[(end-get_adder_wordlength(addernode, wordlength_in)-1+1):end])
+                    write(writefile_outputs, bitstring(output_value*curr_input)[(end-wl_adder_dsp-1+1):end])
                 end
                 write(writefile_outputs, "\n")
             end
