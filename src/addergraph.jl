@@ -50,7 +50,8 @@ function get_output_dsp(addergraph::AdderGraph, output_value::Int)
     return odd(abs(output_value))
 end
 
-function get_dsp_wordlength(dsp_value::Int, wordlength_in::Int)
+function get_dsp_wordlength(dsp_value::Int, wordlength_in::Int; signed::Bool=true, kwargs...)
+    # return round(Int, signed+log2(abs(dsp_value * ((-1)^(signed)*2^(wordlength_in-signed) - (1-signed)))), RoundUp)
     return round(Int, log2(dsp_value * (2^wordlength_in - 1)), RoundUp)
 end
 

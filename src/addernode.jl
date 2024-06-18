@@ -52,7 +52,8 @@ function compute_nb_onebit_adders(addernode::AdderNode, wordlength_in::Int)
 end
 
 
-function get_adder_wordlength(addernode::AdderNode, wordlength_in::Int)
+function get_adder_wordlength(addernode::AdderNode, wordlength_in::Int; signed::Bool=true, kwargs...)
+    # return round(Int, signed+log2(abs(get_value(addernode) * ((-1)^(signed)*2^(wordlength_in-signed) - (1-signed)) + (-1)^(signed)*maximum(abs.(adder_value_bounds_zeros(addernode)[1])))), RoundUp)
     return round(Int, log2(get_value(addernode) * (2^wordlength_in - 1) + maximum(abs.(adder_value_bounds_zeros(addernode)[1]))), RoundUp)
 end
 
