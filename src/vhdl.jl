@@ -1095,7 +1095,7 @@ function vhdl_test_generation(
     vhdl_str *= port_str
     vhdl_str *= "\tend component;\n\n"
 
-    vhdl_str *= "signal input_x : in std_logic_vector($(wordlength_in-1) downto 0);\n"
+    vhdl_str *= "signal input_x : std_logic_vector($(wordlength_in-1) downto 0);\n"
     for output_value in output_values
         output_name = output_naming_vhdl(output_value)
         shift = round(Int, log2(abs(output_value)/odd(abs(output_value))))
@@ -1107,11 +1107,11 @@ function vhdl_test_generation(
             dsp_value = get_output_dsp(addergraph, output_value)
             wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
         end
-        vhdl_str *= "signal $(output_name) : out std_logic_vector($(wl_adder_dsp+shift-1) downto 0);\n"
+        vhdl_str *= "signal $(output_name) : std_logic_vector($(wl_adder_dsp+shift-1) downto 0);\n"
     end
 
-    vhdl_str *= "signal clk : in std_logic;\n"
-    vhdl_str *= "signal rst : in std_logic;\n\n"
+    vhdl_str *= "signal clk : std_logic;\n"
+    vhdl_str *= "signal rst : std_logic;\n\n"
 
     vhdl_str *= "\tfunction testLine(testCounter : integer; expectedOutputS : string(1 to 10000)"
     for output_value in output_values
@@ -1194,7 +1194,7 @@ function vhdl_test_generation(
     vhdl_str *= "\tprocess\n"
     vhdl_str *= "\t\tvariable input : line;\n"
     vhdl_str *= "\t\tfile inputsFile : text is \"$(inputs_filename)\";\n"
-    vhdl_str *= "\t\tvariable v_input_x : in bit_vector($(wordlength_in-1) downto 0);\n"
+    vhdl_str *= "\t\tvariable v_input_x : bit_vector($(wordlength_in-1) downto 0);\n"
 
     vhdl_str *= """
         begin
