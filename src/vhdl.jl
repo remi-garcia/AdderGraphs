@@ -437,6 +437,10 @@ function vhdl_addergraph_generation(
     for dsp_value in get_dsp(addergraph)
         signal_dsp_name = signal_naming(dsp_value)
         vhdl_str *= "signal $(signal_dsp_name) : std_logic_vector($(get_dsp_wordlength(dsp_value, wordlength_in)-1) downto 0);\n"
+        vhdl_str *= "signal $(signal_dsp_name)_$(get_adder_depth(addergraph)) : std_logic_vector($(get_dsp_wordlength(dsp_value, wordlength_in)-1) downto 0);\n"
+        if pipeline || pipeline_inout
+            vhdl_str *= "signal $(signal_dsp_name)_$(get_adder_depth(addergraph))_register : std_logic_vector($(get_dsp_wordlength(dsp_value, wordlength_in)-1) downto 0);\n"
+        end
     end
     for output_value in output_values
         output_name = signal_output_naming(output_value)
@@ -509,6 +513,13 @@ function vhdl_addergraph_generation(
                 end
             end
         end
+        if !isempty(get_dsp(addergraph))
+            vhdl_str *= "\t\t\t-- DSP\n"
+            for dsp_value in get_dsp(addergraph)
+                signal_dsp_name = signal_naming(dsp_value)
+                vhdl_str *= "\t\t\t$(signal_dsp_name)_$(get_adder_depth(addergraph)) <= $(signal_dsp_name)_$(get_adder_depth(addergraph))_register;\n"
+            end
+        end
         vhdl_str *= "\t\tend if;\n"
         vhdl_str *= "\tend process;\n"
         # Signal to register
@@ -542,6 +553,10 @@ function vhdl_addergraph_generation(
                 end
             end
         end
+        for dsp_value in get_dsp(addergraph)
+            signal_dsp_name = signal_naming(dsp_value)
+            vhdl_str *= "\t$(signal_dsp_name)_$(get_adder_depth(addergraph))_register <= $(signal_dsp_name);\n"
+        end
     elseif pipeline_inout
         # Register to signals at clk
         vhdl_str *= "\t-- Add registers for pipelining\n"
@@ -561,6 +576,13 @@ function vhdl_addergraph_generation(
             _, _, signal_output_name = signal_naming(addernode)
             if get_adder_depth(addergraph) <= get_depth(addernode)+get_nb_registers(addernode, addergraph)-1
                 vhdl_str *= "\t\t\t$(signal_output_name)_$(get_adder_depth(addergraph)) <= $(signal_output_name)_$(get_adder_depth(addergraph))_register;\n"
+            end
+        end
+        if !isempty(get_dsp(addergraph))
+            vhdl_str *= "\t\t\t-- DSP\n"
+            for dsp_value in get_dsp(addergraph)
+                signal_dsp_name = signal_naming(dsp_value)
+                vhdl_str *= "\t\t\t$(signal_dsp_name)_$(get_adder_depth(addergraph)) <= $(signal_dsp_name)_$(get_adder_depth(addergraph))_register;\n"
             end
         end
         vhdl_str *= "\t\tend if;\n"
@@ -592,6 +614,10 @@ function vhdl_addergraph_generation(
                 vhdl_str *= "\t$(signal_output_name)_$(get_depth(addernode))_register <= $(signal_output_name);\n"
             end
         end
+        for dsp_value in get_dsp(addergraph)
+            signal_dsp_name = signal_naming(dsp_value)
+            vhdl_str *= "\t$(signal_dsp_name)_$(get_adder_depth(addergraph))_register <= $(signal_dsp_name);\n"
+        end
     else
         addernode = get_origin(addergraph)
         _, _, signal_output_name = signal_naming(addernode)
@@ -606,6 +632,11 @@ function vhdl_addergraph_generation(
             for i in (get_depth(addernode)+1):(get_depth(addernode)+get_nb_registers(addernode, addergraph)-1)
                 vhdl_str *= "\t$(signal_output_name)_$(i) <= $(signal_output_name)_$(i-1);\n"
             end
+        end
+
+        for dsp_value in get_dsp(addergraph)
+            signal_dsp_name = signal_naming(dsp_value)
+            vhdl_str *= "\t$(signal_dsp_name)_$(get_adder_depth(addergraph)) <= $(signal_dsp_name);\n"
         end
     end
 
@@ -630,8 +661,8 @@ function vhdl_addergraph_generation(
     end
 
     for dsp_value in get_dsp(addergraph)
-        signal_output_name = signal_naming(dsp_value)
-        vhdl_str *= "\t$(signal_output_name) <= $(dsp_value)*$(signal_input_name);\n"
+        signal_dsp_name = signal_naming(dsp_value)
+        vhdl_str *= "\t$(signal_dsp_name) <= std_logic_vector(to_signed($(dsp_value)*to_integer(signed($(signal_input_name))), $(wl_adder_dsp)));\n"
     end
 
     for output_value in output_values
