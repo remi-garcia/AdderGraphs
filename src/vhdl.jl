@@ -1143,7 +1143,7 @@ function vhdl_test_generation(
             wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
         end
         vhdl_str *= "\t\tvariable testSuccess_$(output_name) : boolean;\n"
-        vhdl_str *= "\t\tvariable expected_$(output_name) : std_logic_vector($(wl_adder_dsp+shift-1) downto 0);\n"
+        vhdl_str *= "\t\tvariable expected_$(output_name) : bit_vector($(wl_adder_dsp+shift-1) downto 0);\n"
     end
 
     vhdl_str *= "\tbegin\n"
@@ -1216,8 +1216,8 @@ function vhdl_test_generation(
     vhdl_str *= "\t\tvariable expectedOutput : line;\n"
     vhdl_str *= "\t\tvariable expectedOutputString : string;\n"
     vhdl_str *= "\t\tfile outputsFile : text is \"$(outputs_filename)\";\n"
-    vhdl_str *= "\t\tvariable testCounter := 0;\n"
-    vhdl_str *= "\t\tvariable errorCounter := 0;\n"
+    vhdl_str *= "\t\tvariable testCounter : integer := 0;\n"
+    vhdl_str *= "\t\tvariable errorCounter : integer := 0;\n"
     vhdl_str *= "\t\tvariable testSuccess : boolean;\n"
 
     vhdl_str *= "\tbegin\n"
