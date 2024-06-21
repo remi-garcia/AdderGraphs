@@ -1193,7 +1193,7 @@ function vhdl_test_generation(
 
     vhdl_str *= "\tprocess\n"
     vhdl_str *= "\t\tvariable input : line;\n"
-    vhdl_str *= "\t\tfile inputsFile : text is \"$(inputs_filename)\";\n"
+    vhdl_str *= "\t\tfile inputsFile : text open read_mode is in \"$(inputs_filename)\";\n"
     vhdl_str *= "\t\tvariable v_input_x : bit_vector($(wordlength_in-1) downto 0);\n"
 
     vhdl_str *= """
@@ -1215,7 +1215,7 @@ function vhdl_test_generation(
     vhdl_str *= "\tprocess\n"
     vhdl_str *= "\t\tvariable expectedOutput : line;\n"
     vhdl_str *= "\t\tvariable expectedOutputString : string(1 to 10000);\n"
-    vhdl_str *= "\t\tfile outputsFile : text is \"$(outputs_filename)\";\n"
+    vhdl_str *= "\t\tfile outputsFile : text open read_mode is in \"$(outputs_filename)\";\n"
     vhdl_str *= "\t\tvariable testCounter : integer := 0;\n"
     vhdl_str *= "\t\tvariable errorCounter : integer := 0;\n"
     vhdl_str *= "\t\tvariable testSuccess : boolean;\n"
