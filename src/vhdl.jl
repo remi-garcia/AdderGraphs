@@ -1004,6 +1004,7 @@ function vhdl_test_generation(
         wordlength_in::Int,
         with_clk::Bool=true,
         verbose::Bool=false,
+        original_entity_name::String="",
         entity_name::String="",
         inputs_filename::String="test.input",
         outputs_filename::String="test.output",
@@ -1012,14 +1013,16 @@ function vhdl_test_generation(
     output_values = unique(get_outputs(addergraph))
 
     vhdl_str = ""
+    if isempty(original_entity_name)
+        original_entity_name = entity_naming(addergraph)
+    end
     if isempty(entity_name)
-        ag_entity_name = entity_naming(addergraph)
-        entity_name = "TEST_"*ag_entity_name
+        entity_name = "TEST_"*original_entity_name
     end
     vhdl_str *= """
     --------------------------------------------------------------------------------
     --                      $(entity_name)
-    -- VHDL generated for testing $(ag_entity_name)
+    -- VHDL generated for testing $(original_entity_name)
     -- Authors: Rémi Garcia
     --------------------------------------------------------------------------------
     -- Input signals: $(with_clk ? "clk " : "")input_x
@@ -1046,7 +1049,7 @@ function vhdl_test_generation(
     vhdl_str *= """
     architecture behavioral of $(entity_name) is
     """
-    vhdl_str *= "\tcomponent $(ag_entity_name) is\n"
+    vhdl_str *= "\tcomponent $(original_entity_name) is\n"
 
     port_str = "\t\tport (\n"
     # vhdl_str *= "\t\tclk : in std_logic;"
@@ -1179,7 +1182,7 @@ function vhdl_test_generation(
         end process;
     """
 
-    vhdl_str *= "\n\ttest: $(ag_entity_name)\n"
+    vhdl_str *= "\n\ttest: $(original_entity_name)\n"
     vhdl_str *= "\t\tport map (\n"
     vhdl_str *= "\t\t\tinput_x => input_x"
     if with_clk
@@ -1273,7 +1276,16 @@ function write_vhdl(
     end
     if with_tests
         vhdl_str = ""
-        vhdl_str = vhdl_test_generation(addergraph; verbose=verbose, kwargs...)
+        original_entity_name = ""
+        if no_addergraph
+            output_values = unique(get_outputs(addergraph))
+            if use_tables
+                original_entity_name = "Tables_"*entity_naming(output_values)
+            else
+                original_entity_name = "Products_"*entity_naming(output_values)
+            end
+        end
+        vhdl_str = vhdl_test_generation(addergraph; verbose=verbose, original_entity_name=original_entity_name, kwargs...)
         open(vhdl_test_filename, "w") do writefile
             write(writefile, vhdl_str)
         end
