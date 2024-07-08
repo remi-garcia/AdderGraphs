@@ -281,6 +281,7 @@ function vhdl_addergraph_generation(
         verbose::Bool=false,
         entity_name::String="",
         adder_entity_name::String="",
+        twos_complement::Bool=true,
         kwargs...
     )
     if pipeline || pipeline_inout
@@ -666,7 +667,7 @@ function vhdl_addergraph_generation(
 
     for dsp_value in get_dsp(addergraph)
         signal_dsp_name = signal_naming(dsp_value)
-        vhdl_str *= "\t$(signal_dsp_name) <= std_logic_vector(to_signed($(dsp_value)*to_integer(signed($(signal_input_name))), $(wl_adder_dsp)));\n"
+        vhdl_str *= "\t$(signal_dsp_name) <= std_logic_vector(to_$(twos_complement ? "" : "un")signed($(dsp_value)*to_integer($(twos_complement ? "" : "un")signed($(signal_input_name))), $(wl_adder_dsp)));\n"
     end
 
     for output_value in output_values
@@ -703,7 +704,9 @@ function vhdl_output_products(
         with_clk::Bool=true,
         target_frequency::Int=400,
         force_dsp::Bool=false,
-        verbose::Bool=false
+        verbose::Bool=false,
+        twos_complement::Bool=true,
+        kwargs...
     )
     if pipeline_inout
         with_clk = true
@@ -837,7 +840,7 @@ function vhdl_output_products(
             dsp_value = get_output_dsp(addergraph, output_value)
             wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
         end
-        vhdl_str *= "\t$(signal_output_naming(output_value)) <= std_logic_vector(to_signed($(output_value)*to_integer(signed($signal_input_name)), $(wl_adder_dsp)));\n"
+        vhdl_str *= "\t$(signal_output_naming(output_value)) <= std_logic_vector(to_$(twos_complement ? "" : "un")signed($(output_value)*to_integer($(twos_complement ? "" : "un")signed($signal_input_name)), $(wl_adder_dsp)));\n"
     end
 
     vhdl_str *= "end architecture;\n"
@@ -852,7 +855,9 @@ function vhdl_output_tables(
         pipeline_inout::Bool=false,
         with_clk::Bool=true,
         target_frequency::Int=400,
-        verbose::Bool=false
+        verbose::Bool=false,
+        twos_complement::Bool=true,
+        kwargs...
     )
     if pipeline_inout
         with_clk = true
@@ -941,6 +946,9 @@ function vhdl_output_tables(
         end
         wlout = round(Int, log2((2^(wordlength_in) - 1)*abs(output_value)), RoundUp)
         lut_outputs = Vector{Vector{Bool}}([reverse(digits(abs(output_value)*i, base=2, pad=wlout))[1:wlout] for i in 0:((2^wordlength_in)-1)])
+        if twos_complement
+            lut_outputs = Vector{Vector{Bool}}([reverse(digits(abs(output_value)*i, base=2, pad=wlout))[1:wlout] for i in ((-2^(wordlength_in-1))):((2^(wordlength_in-1))-1)])
+        end
         wl_adder_dsp = 0
         if !done_with_dsp(addergraph, output_value)
             addernode = get_output_addernode(addergraph, output_value)
@@ -951,7 +959,7 @@ function vhdl_output_tables(
         end
         output_name = signal_output_naming(abs(output_value))
         vhdl_str *= """
-        \n\ttype lut_$(output_name) is array (natural range 0 to $(2^(wordlength_in)-1)) of std_logic_vector($(wl_adder_dsp-1) downto 0);
+        \n\ttype lut_$(output_name) is array (natural range $(twos_complement ? -2^(wordlength_in-1) : 0) to $(twos_complement ? 2^(wordlength_in-1)-1 : 2^(wordlength_in)-1)) of std_logic_vector($(wl_adder_dsp-1) downto 0);
         \tsignal bitcount_$(output_name) : lut_$(output_name) := (
         """
         vhdl_str *= "\t\t"
