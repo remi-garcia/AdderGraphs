@@ -463,7 +463,9 @@ function vhdl_addergraph_generation(
     end
 
     vhdl_str *= "\nbegin\n"
-    vhdl_str *= "\t$(signal_input_name) <= input_x;\n"
+    if !pipeline_inout
+        vhdl_str *= "\t$(signal_input_name) <= input_x;\n"
+    end
 
     addernode = get_origin(addergraph)
     _, _, signal_output_name = signal_naming(addernode)
@@ -500,6 +502,7 @@ function vhdl_addergraph_generation(
             end
         end
         if pipeline_inout
+            vhdl_str *= "\t\t\t$(signal_input_name) <= input_x;\n"
             vhdl_str *= "\t\t\t-- Stage $(get_adder_depth(addergraph))\n"
             addernode = get_origin(addergraph)
             _, _, signal_output_name = signal_naming(addernode)
@@ -563,6 +566,7 @@ function vhdl_addergraph_generation(
         vhdl_str *= "\tprocess(clk)\n"
         vhdl_str *= "\tbegin\n"
         vhdl_str *= "\t\tif(rising_edge(clk)) then\n"
+        vhdl_str *= "\t\t\t$(signal_input_name) <= input_x;\n"
         for i in 0:1
             addernode = get_origin(addergraph)
             _, _, signal_output_name = signal_naming(addernode)
