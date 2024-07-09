@@ -292,6 +292,7 @@ function vhdl_addergraph_generation(
         pipeline = false
     end
     output_values = unique(get_outputs(addergraph))
+    oddabs_output_values = unique(odd.(abs.(output_values)))
 
     vhdl_str = ""
     adder_ports = Dict{String, String}()
@@ -400,19 +401,19 @@ function vhdl_addergraph_generation(
     signal_output_wl = signal_input_wl
     vhdl_str *= "signal $(signal_output_name) : std_logic_vector($(signal_output_wl-1) downto 0);\n"
     if pipeline_inout && !pipeline
-        vhdl_str *= "signal $(signal_output_name)_$(get_depth(addernode))_register : std_logic_vector($(signal_output_wl-1) downto 0);\n"
+        vhdl_str *= "signal $(signal_output_name)_$(0)_register : std_logic_vector($(signal_output_wl-1) downto 0);\n"
     end
-    for i in get_depth(addernode):(get_depth(addernode)+get_nb_registers(addernode, addergraph)-1+1)
+    for i in 0:(get_nb_registers(addernode, addergraph)-1+1)
         vhdl_str *= "signal $(signal_output_name)_$(i) : std_logic_vector($(signal_output_wl-1) downto 0);\n"
         if pipeline
             if i <= get_adder_depth(addergraph)-1
                 vhdl_str *= "signal $(signal_output_name)_$(i)_register : std_logic_vector($(signal_output_wl-1) downto 0);\n"
             end
         end
-        if pipeline_inout
-            if i == get_adder_depth(addergraph)
-                vhdl_str *= "signal $(signal_output_name)_$(i)_register : std_logic_vector($(signal_output_wl-1) downto 0);\n"
-            end
+    end
+    if pipeline_inout
+        if get_value(addernode) in oddabs_output_values
+            vhdl_str *= "signal $(signal_output_name)_$(get_adder_depth(addergraph))_register : std_logic_vector($(signal_output_wl-1) downto 0);\n"
         end
     end
     for addernode in get_nodes(addergraph)
@@ -428,10 +429,10 @@ function vhdl_addergraph_generation(
                     vhdl_str *= "signal $(signal_output_name)_$(i)_register : std_logic_vector($(signal_output_wl-1) downto 0);\n"
                 end
             end
-            if pipeline_inout
-                if i == get_adder_depth(addergraph)
-                    vhdl_str *= "signal $(signal_output_name)_$(i)_register : std_logic_vector($(signal_output_wl-1) downto 0);\n"
-                end
+        end
+        if pipeline_inout
+            if get_value(addernode) in oddabs_output_values
+                vhdl_str *= "signal $(signal_output_name)_$(get_adder_depth(addergraph))_register : std_logic_vector($(signal_output_wl-1) downto 0);\n"
             end
         end
     end
@@ -464,9 +465,7 @@ function vhdl_addergraph_generation(
     end
 
     vhdl_str *= "\nbegin\n"
-    if !pipeline_inout
-        vhdl_str *= "\t$(signal_input_name) <= input_x;\n"
-    end
+    vhdl_str *= "\t$(signal_input_name) <= input_x;\n"
 
     addernode = get_origin(addergraph)
     _, _, signal_output_name = signal_naming(addernode)
@@ -503,16 +502,15 @@ function vhdl_addergraph_generation(
             end
         end
         if pipeline_inout
-            vhdl_str *= "\t\t\t$(signal_input_name) <= input_x;\n"
             vhdl_str *= "\t\t\t-- Stage $(get_adder_depth(addergraph))\n"
             addernode = get_origin(addergraph)
             _, _, signal_output_name = signal_naming(addernode)
-            if get_depth(addernode)+get_nb_registers(addernode, addergraph)-1 == get_adder_depth(addergraph)
+            if get_value(addernode) in oddabs_output_values
                 vhdl_str *= "\t\t\t$(signal_output_name)_$(get_adder_depth(addergraph)) <= $(signal_output_name)_$(get_adder_depth(addergraph))_register;\n"
             end
             for addernode in get_nodes(addergraph)
                 _, _, signal_output_name = signal_naming(addernode)
-                if get_depth(addernode)+get_nb_registers(addernode, addergraph)-1 == get_adder_depth(addergraph)
+                if get_value(addernode) in oddabs_output_values
                     vhdl_str *= "\t\t\t$(signal_output_name)_$(get_adder_depth(addergraph)) <= $(signal_output_name)_$(get_adder_depth(addergraph))_register;\n"
                 end
             end
@@ -563,28 +561,26 @@ function vhdl_addergraph_generation(
         end
     elseif pipeline_inout
         # Register to signals at clk
-        vhdl_str *= "\t-- Add registers for pipelining\n"
+        vhdl_str *= "\t-- Add registers\n"
         vhdl_str *= "\tprocess(clk)\n"
         vhdl_str *= "\tbegin\n"
         vhdl_str *= "\t\tif(rising_edge(clk)) then\n"
-        vhdl_str *= "\t\t\t$(signal_input_name) <= input_x;\n"
-        for i in 0:1
-            addernode = get_origin(addergraph)
-            _, _, signal_output_name = signal_naming(addernode)
-            if i*get_adder_depth(addergraph) >= get_depth(addernode)
-                if i*get_adder_depth(addergraph) <= get_depth(addernode)+get_nb_registers(addernode, addergraph)
-                    vhdl_str *= "\t\t\t$(signal_output_name)_$(i*get_adder_depth(addergraph)) <= $(signal_output_name)_$(i*get_adder_depth(addergraph))_register;\n"
-                end
-            end
+        vhdl_str *= "\t\t\t-- Input;\n"
+        addernode = get_origin(addergraph)
+        _, _, signal_output_name = signal_naming(addernode)
+        vhdl_str *= "\t\t\t$(signal_output_name)_$(0) <= $(signal_output_name)_$(0)_register;\n"
+        vhdl_str *= "\t\t\t-- Outputs AG;\n"
+        if get_value(addernode) in oddabs_output_values
+            vhdl_str *= "\t\t\t$(signal_output_name)_$(get_adder_depth(addergraph)) <= $(signal_output_name)_$(get_adder_depth(addergraph))_register;\n"
         end
         for addernode in get_nodes(addergraph)
-            _, _, signal_output_name = signal_naming(addernode)
-            if get_adder_depth(addergraph) <= get_depth(addernode)+get_nb_registers(addernode, addergraph)-1
+            if get_value(addernode) in oddabs_output_values
+                _, _, signal_output_name = signal_naming(addernode)
                 vhdl_str *= "\t\t\t$(signal_output_name)_$(get_adder_depth(addergraph)) <= $(signal_output_name)_$(get_adder_depth(addergraph))_register;\n"
             end
         end
         if !isempty(get_dsp(addergraph))
-            vhdl_str *= "\t\t\t-- DSP\n"
+            vhdl_str *= "\t\t\t-- Outputs DSP\n"
             for dsp_value in get_dsp(addergraph)
                 signal_dsp_name = signal_naming(dsp_value)
                 vhdl_str *= "\t\t\t$(signal_dsp_name)_$(get_adder_depth(addergraph)) <= $(signal_dsp_name)_$(get_adder_depth(addergraph))_register;\n"
@@ -819,7 +815,7 @@ function vhdl_output_products(
         # https://stackoverflow.com/questions/9989913/vhdl-how-to-use-clk-and-reset-in-process
         # https://vhdlguru.blogspot.com/2011/01/what-is-pipelining-explanation-with.html
         # Register to signals at clk
-        vhdl_str *= "\t-- Add registers for pipelining\n"
+        vhdl_str *= "\t-- Add registers\n"
         vhdl_str *= "\tprocess(clk)\n"
         vhdl_str *= "\tbegin\n"
         vhdl_str *= "\t\tif(rising_edge(clk)) then\n"
@@ -986,7 +982,7 @@ function vhdl_output_tables(
         # https://stackoverflow.com/questions/9989913/vhdl-how-to-use-clk-and-reset-in-process
         # https://vhdlguru.blogspot.com/2011/01/what-is-pipelining-explanation-with.html
         # Register to signals at clk
-        vhdl_str *= "\t-- Add registers for pipelining\n"
+        vhdl_str *= "\t-- Add registers\n"
         vhdl_str *= "\tprocess(clk)\n"
         vhdl_str *= "\tbegin\n"
         vhdl_str *= "\t\tif(rising_edge(clk)) then\n"
