@@ -661,9 +661,12 @@ function vhdl_addergraph_generation(
         vhdl_str *= "\t\t);\n\n"
     end
 
+    addernode = get_origin(addergraph)
+    _, _, signal_input_naming = signal_naming(addernode)
+    signal_input_naming = signal_input_naming * "_$(0)"
     for dsp_value in get_dsp(addergraph)
         signal_dsp_name = signal_naming(dsp_value)
-        vhdl_str *= "\t$(signal_dsp_name) <= std_logic_vector(to_$(twos_complement ? "" : "un")signed($(dsp_value)*to_integer($(twos_complement ? "" : "un")signed($(signal_input_name))), $(wl_adder_dsp)));\n"
+        vhdl_str *= "\t$(signal_dsp_name) <= std_logic_vector(to_$(twos_complement ? "" : "un")signed($(dsp_value)*to_integer($(twos_complement ? "" : "un")signed($(signal_input_naming))), $(wl_adder_dsp)));\n"
     end
 
     for output_value in output_values
