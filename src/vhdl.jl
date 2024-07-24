@@ -56,7 +56,7 @@ end
 function adder_generation_vhdl(
         addernode::AdderNode, addergraph::AdderGraph;
         wordlength_in::Int,
-        target_frequency::Int=400,
+        target_frequency::Int=200,
         verbose::Bool=false,
         entity_name::String="",
         apply_truncations::Bool=true,
@@ -277,7 +277,7 @@ function vhdl_addergraph_generation(
         wordlength_in::Int, pipeline::Bool=false,
         pipeline_inout::Bool=false,
         with_clk::Bool=true,
-        target_frequency::Int=400,
+        target_frequency::Int=200,
         verbose::Bool=false,
         entity_name::String="",
         adder_entity_name::String="",
@@ -694,14 +694,12 @@ function vhdl_addergraph_generation(
 end
 
 
-
-
 function vhdl_output_products(
         addergraph::AdderGraph;
         wordlength_in::Int,
         pipeline_inout::Bool=false,
         with_clk::Bool=true,
-        target_frequency::Int=400,
+        target_frequency::Int=200,
         force_dsp::Bool=false,
         verbose::Bool=false,
         twos_complement::Bool=true,
@@ -853,7 +851,7 @@ function vhdl_output_tables(
         wordlength_in::Int,
         pipeline_inout::Bool=false,
         with_clk::Bool=true,
-        target_frequency::Int=400,
+        target_frequency::Int=200,
         verbose::Bool=false,
         twos_complement::Bool=true,
         kwargs...
@@ -1015,6 +1013,9 @@ function vhdl_test_generation(
         wordlength_in::Int,
         with_clk::Bool=true,
         verbose::Bool=false,
+        pipeline::Bool=false,
+        pipeline_inout::Bool=false,
+        target_frequency::Int=200,
         original_entity_name::String="",
         entity_name::String="",
         inputs_filename::String="test.input",
@@ -1044,7 +1045,8 @@ function vhdl_test_generation(
     use ieee.numeric_std.all;
     library std;
     use std.textio.all;
-    library work;\n
+    library work;
+    use std.env.stop;\n
     """
 
     # Entity
@@ -1108,6 +1110,12 @@ function vhdl_test_generation(
 
     vhdl_str *= port_str
     vhdl_str *= "\tend component;\n\n"
+
+    vhdl_str *= "constant FREQ      : real := $(target_frequency*1e6);\n"
+    vhdl_str *= "constant PERIOD    : time := 1 sec / FREQ;        -- Full period\n"
+    vhdl_str *= "constant HIGH_TIME : time := PERIOD / 2;          -- High time\n"
+    vhdl_str *= "constant LOW_TIME  : time := PERIOD - HIGH_TIME;  -- Low time -- always >= HIGH_TIME\n\n"
+    #vhdl_str *= "assert (HIGH_TIME /= 0 fs) report \"clk_plain: High time is zero; time resolution to large for frequency\" severity FAILURE;\n\n"
 
     vhdl_str *= "signal input_x : std_logic_vector($(wordlength_in-1) downto 0);\n"
     for output_value in output_values
@@ -1187,9 +1195,9 @@ function vhdl_test_generation(
         process
         begin
             clk <= '0';
-            wait for 5 ns;
+            wait for LOW_TIME;
             clk <= '1';
-            wait for 5 ns;
+            wait for HIGH_TIME;
         end process;
     """
 
@@ -1212,8 +1220,9 @@ function vhdl_test_generation(
 
     vhdl_str *= """
         begin
+            wait for 1000 ns; -- Initialize
             rst <= '1';
-            wait for 10 ns;
+            wait for PERIOD;
             rst <= '0';
     """
 
@@ -1221,9 +1230,8 @@ function vhdl_test_generation(
     vhdl_str *= "\t\t\treadline(inputsFile, input);\n"
     vhdl_str *= "\t\t\tread(input, v_input_x);\n"
     vhdl_str *= "\t\t\tinput_x <= to_stdlogicvector(v_input_x);\n"
-    vhdl_str *= "\t\t\twait for 10 ns;\n"
+    vhdl_str *= "\t\t\twait for PERIOD;\n"
     vhdl_str *= "\t\tend loop;\n"
-    vhdl_str *= "\t\twait for $(10*(get_adder_depth(addergraph)+2+1)) ns; -- For pipelining\n"
     vhdl_str *= "\tend process;\n\n"
 
     vhdl_str *= "\tprocess\n"
@@ -1235,7 +1243,14 @@ function vhdl_test_generation(
     vhdl_str *= "\t\tvariable testSuccess : boolean;\n"
 
     vhdl_str *= "\tbegin\n"
-    vhdl_str *= "\t\twait for 12 ns;\n"
+    vhdl_str *= "\t\twait for 1000 ns; -- Initialize\n"
+    vhdl_str *= "\t\twait for PERIOD; -- For rst\n"
+    vhdl_str *= "\t\twait for HIGH_TIME/2; -- For evaluation\n"
+    if pipeline
+        vhdl_str *= "\t\twait for PERIOD*$(get_adder_depth(addergraph)-1); -- For pipeline\n"
+    elseif pipeline_inout
+        vhdl_str *= "\t\twait for PERIOD*2; -- For pipeline\n"
+    end
 
     vhdl_str *= "\t\twhile not endfile(outputsFile) loop\n"
     vhdl_str *= "\t\t\ttestCounter := testCounter + 1;\n"
@@ -1252,10 +1267,11 @@ function vhdl_test_generation(
     vhdl_str *= "\t\t\tif not testSuccess then\n"
     vhdl_str *= "\t\t\t\terrorCounter := errorCounter + 1;\n"
     vhdl_str *= "\t\t\tend if;\n"
-    vhdl_str *= "\t\t\twait for 10 ns;\n"
+    vhdl_str *= "\t\t\twait for PERIOD;\n"
     vhdl_str *= "\t\tend loop;\n"
     vhdl_str *= "\t\treport integer'image(errorCounter) & \" error(s) encoutered.\" severity note;\n"
     vhdl_str *= "\t\treport \"End of simulation after \" & integer'image(testCounter) & \" tests\" severity note;\n"
+    vhdl_str *= "\t\tstop;\n"
     vhdl_str *= "\tend process;\n\n"
 
     vhdl_str *= "end architecture;\n"
@@ -1296,7 +1312,12 @@ function write_vhdl(
                 original_entity_name = "Products_"*entity_naming(output_values)
             end
         end
-        vhdl_str = vhdl_test_generation(addergraph; verbose=verbose, original_entity_name=original_entity_name, kwargs...)
+        vhdl_str = vhdl_test_generation(
+            addergraph;
+            verbose=verbose,
+            original_entity_name=original_entity_name,
+            kwargs...
+        )
         open(vhdl_test_filename, "w") do writefile
             write(writefile, vhdl_str)
         end
