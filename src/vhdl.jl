@@ -944,7 +944,7 @@ function vhdl_output_tables(
         wlout = round(Int, log2((2^(wordlength_in) - 1)*abs(output_value)), RoundUp)
         lut_outputs = Vector{Vector{Bool}}([reverse(digits(abs(output_value)*i, base=2, pad=wlout))[1:wlout] for i in 0:((2^wordlength_in)-1)])
         if twos_complement
-            lut_outputs = Vector{Vector{Bool}}([reverse(digits(abs(output_value)*i, base=2, pad=wlout))[1:wlout] for i in ((-2^(wordlength_in-1))):((2^(wordlength_in-1))-1)])
+            lut_outputs = Vector{Vector{Bool}}([[parse(Int, curr_digit) for curr_digit in bitstring(abs(output_value)*i)][(end-wlout+1):end] for i in ((-2^(wordlength_in-1))):((2^(wordlength_in-1))-1)])
         end
         wl_adder_dsp = 0
         if !done_with_dsp(addergraph, output_value)
