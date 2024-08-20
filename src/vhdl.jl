@@ -1004,7 +1004,7 @@ function vhdl_output_tables(
 
     for output_value in output_values
         output_name = signal_output_naming(abs(output_value))
-        vhdl_str *= "\t$(signal_output_naming(output_value)) <= $(output_value < 0 ? "-" : "")bitcount_$(output_name)(TO_INTEGER(signed($(signal_input_name))));\n"
+        vhdl_str *= "\t$(signal_output_naming(output_value)) <= $(output_value < 0 ? "-" : "")bitcount_$(output_name)(TO_INTEGER($(twos_complement ? "" : "un")signed($(signal_input_name))));\n"
     end
 
     vhdl_str *= "end architecture;\n"
@@ -1027,6 +1027,7 @@ function vhdl_test_generation(
         tests_entity_name::String="",
         inputs_filename::String="test.input",
         outputs_filename::String="test.output",
+        twos_complement::Bool=true,
         kwargs...
     )
     output_values = unique(get_outputs(addergraph))
@@ -1184,6 +1185,8 @@ function vhdl_test_generation(
         vhdl_str *= "\t\tread(expectedOutput, expected_$(output_name));\n"
         vhdl_str *= "\t\tif $(output_name) = to_stdlogicvector(expected_$(output_name)) then\n"
         vhdl_str *= "\t\t\ttestSuccess_$(output_name) := true;\n"
+        vhdl_str *= "\t\telse\n"
+        vhdl_str *= "\t\t\treport \"For $(output_name): expected \" & integer'image(to_integer($(twos_complement ? "" : "un")signed(to_stdlogicvector(expected_$(output_name))))) & \" but got \" & integer'image(to_integer($(twos_complement ? "" : "un")signed(to_stdlogicvector($(output_name))))) severity note;\n"
         vhdl_str *= "\t\tend if;\n\n"
     end
 
