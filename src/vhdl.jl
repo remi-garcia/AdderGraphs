@@ -709,6 +709,7 @@ function vhdl_output_products(
         target_frequency::Int=200,
         force_dsp::Bool=false,
         verbose::Bool=false,
+        entity_name::String="",
         twos_complement::Bool=true,
         kwargs...
     )
@@ -716,7 +717,9 @@ function vhdl_output_products(
         with_clk = true
     end
     output_values = unique(get_outputs(addergraph))
-    entity_name = "Products_"*entity_naming(output_values)
+    if isempty(entity_name)
+        entity_name = "Products_"*entity_naming(output_values)
+    end
 
     vhdl_str = """
     --------------------------------------------------------------------------------
@@ -860,6 +863,7 @@ function vhdl_output_tables(
         with_clk::Bool=true,
         target_frequency::Int=200,
         verbose::Bool=false,
+        entity_name::String="",
         twos_complement::Bool=true,
         kwargs...
     )
@@ -867,7 +871,9 @@ function vhdl_output_tables(
         with_clk = true
     end
     output_values = unique(get_outputs(addergraph))
-    entity_name = "Tables_"*entity_naming(output_values)
+    if isempty(entity_name)
+        entity_name = "Tables_"*entity_naming(output_values)
+    end
 
     vhdl_str = """
     --------------------------------------------------------------------------------
