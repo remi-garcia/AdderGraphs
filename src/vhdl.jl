@@ -58,18 +58,18 @@ function adder_generation_vhdl(
         wordlength_in::Int,
         target_frequency::Int=200,
         verbose::Bool=false,
-        entity_name::String="",
+        adder_entity_name::String="",
         apply_truncations::Bool=true,
         twos_complement::Bool=true,
         kwargs...
     )
     port_names = adder_port_names()
-    if isempty(entity_name)
+    if isempty(adder_entity_name)
         entity_name = entity_naming(addernode)
     end
     vhdl_str = """
     --------------------------------------------------------------------------------
-    --                      $(entity_name)
+    --                      $(adder_entity_name)
     -- VHDL generated for Kintex7 @ $(target_frequency)MHz
     -- Authors: Rémi Garcia
     --------------------------------------------------------------------------------
@@ -127,7 +127,7 @@ function adder_generation_vhdl(
     """
 
     vhdl_str *= """
-    entity $(entity_name) is
+    entity $(adder_entity_name) is
     """
 
     port_str = "port (\n"
@@ -146,7 +146,7 @@ function adder_generation_vhdl(
 
     # Architecture
     vhdl_str *= """
-    architecture arch of $(entity_name) is
+    architecture arch of $(adder_entity_name) is
     """
 
     signal_output_name = "x_out_c$(addernode_value)"
@@ -268,7 +268,7 @@ function adder_generation_vhdl(
     vhdl_str *= "\t$(port_names[3]) <= $(signal_output_name);\n"
     vhdl_str *= "end architecture;\n"
 
-    return (entity_name, port_str, vhdl_str)
+    return (adder_entity_name, port_str, vhdl_str)
 end
 
 
@@ -280,7 +280,7 @@ function vhdl_addergraph_generation(
         target_frequency::Int=200,
         verbose::Bool=false,
         entity_name::String="",
-        adder_entity_name::String="",
+        adder_entity_names::String="",
         twos_complement::Bool=true,
         vhdl_dont_touch::Bool=false,
         kwargs...
@@ -300,11 +300,11 @@ function vhdl_addergraph_generation(
     current_adder = 1
     for addernode in get_nodes(addergraph)
         current_adder_entity_name = ""
-        if !isempty(adder_entity_name)
-            current_adder_entity_name = "$(adder_entity_name)_$(current_adder)"
+        if !isempty(adder_entity_names)
+            current_adder_entity_name = "$(adder_entity_names)_$(current_adder)"
             current_adder += 1
         end
-        current_adder_entity_name, adder_port_str, adder_vhdl_str = adder_generation_vhdl(addernode, addergraph; wordlength_in=wordlength_in, target_frequency=target_frequency, entity_name=current_adder_entity_name, kwargs...)
+        current_adder_entity_name, adder_port_str, adder_vhdl_str = adder_generation_vhdl(addernode, addergraph; wordlength_in=wordlength_in, target_frequency=target_frequency, adder_entity_name=current_adder_entity_name, kwargs...)
         adder_ports[current_adder_entity_name] = adder_port_str
         vhdl_str *= adder_vhdl_str
         vhdl_str *= "\n\n\n"
@@ -1023,7 +1023,7 @@ function vhdl_test_generation(
         pipeline::Bool=false,
         pipeline_inout::Bool=false,
         target_frequency::Int=200,
-        original_entity_name::String="",
+        entity_name::String="",
         tests_entity_name::String="",
         inputs_filename::String="test.input",
         outputs_filename::String="test.output",
@@ -1032,6 +1032,7 @@ function vhdl_test_generation(
     output_values = unique(get_outputs(addergraph))
 
     vhdl_str = ""
+    original_entity_name = entity_name
     if isempty(original_entity_name)
         original_entity_name = entity_naming(addergraph)
     end
@@ -1294,7 +1295,7 @@ function vhdl_simulation_generation(
         with_clk::Bool=true,
         verbose::Bool=false,
         target_frequency::Int=200,
-        original_entity_name::String="",
+        entity_name::String="",
         simulation_entity_name::String="",
         simulation_inputs_filename::String="sim.input",
         kwargs...
@@ -1302,6 +1303,8 @@ function vhdl_simulation_generation(
     output_values = unique(get_outputs(addergraph))
 
     vhdl_str = ""
+
+    original_entity_name = entity_name
     if isempty(original_entity_name)
         original_entity_name = entity_naming(addergraph)
     end
@@ -1467,37 +1470,41 @@ function write_vhdl(
         vhdl_simulation_filename::String="addergraph_simulation.vhdl",
         no_addergraph::Bool=false,
         use_tables::Bool=false,
+        entity_name::String="",
         verbose::Bool=false,
         with_tests::Bool=true,
         with_simulation::Bool=true,
         kwargs...
     )
+    if isempty(entity_name)
+        if no_addergraph
+            output_values = unique(get_outputs(addergraph))
+            if use_tables
+                entity_name = "Tables_"*entity_naming(output_values)
+            else
+                entity_name = "Products_"*entity_naming(output_values)
+            end
+        end
+    end
+
     vhdl_str = ""
     if !no_addergraph
-        _, vhdl_str, _ = vhdl_addergraph_generation(addergraph; verbose=verbose, kwargs...)
+        _, vhdl_str, _ = vhdl_addergraph_generation(addergraph; entity_name=entity_name, verbose=verbose, kwargs...)
     elseif use_tables
-        vhdl_str = vhdl_output_tables(addergraph; verbose=verbose, kwargs...)
+        vhdl_str = vhdl_output_tables(addergraph; verbose=verbose, entity_name=entity_name, kwargs...)
     else
-        vhdl_str = vhdl_output_products(addergraph; verbose=verbose, kwargs...)
+        vhdl_str = vhdl_output_products(addergraph; verbose=verbose, entity_name=entity_name, kwargs...)
     end
     open(vhdl_filename, "w") do writefile
         write(writefile, vhdl_str)
     end
+
     if with_tests
         vhdl_str = ""
-        original_entity_name = ""
-        if no_addergraph
-            output_values = unique(get_outputs(addergraph))
-            if use_tables
-                original_entity_name = "Tables_"*entity_naming(output_values)
-            else
-                original_entity_name = "Products_"*entity_naming(output_values)
-            end
-        end
         vhdl_str = vhdl_test_generation(
             addergraph;
             verbose=verbose,
-            original_entity_name=original_entity_name,
+            entity_name=entity_name,
             kwargs...
         )
         open(vhdl_test_filename, "w") do writefile
@@ -1507,19 +1514,10 @@ function write_vhdl(
     end
     if with_simulation
         vhdl_str = ""
-        original_entity_name = ""
-        if no_addergraph
-            output_values = unique(get_outputs(addergraph))
-            if use_tables
-                original_entity_name = "Tables_"*entity_naming(output_values)
-            else
-                original_entity_name = "Products_"*entity_naming(output_values)
-            end
-        end
         vhdl_str = vhdl_simulation_generation(
             addergraph;
             verbose=verbose,
-            original_entity_name=original_entity_name,
+            entity_name=entity_name,
             kwargs...
         )
         open(vhdl_simulation_filename, "w") do writefile
