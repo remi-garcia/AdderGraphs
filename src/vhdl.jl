@@ -65,7 +65,7 @@ function adder_generation_vhdl(
     )
     port_names = adder_port_names()
     if isempty(adder_entity_name)
-        entity_name = entity_naming(addernode)
+        adder_entity_name = entity_naming(addernode)
     end
     vhdl_str = """
     --------------------------------------------------------------------------------
