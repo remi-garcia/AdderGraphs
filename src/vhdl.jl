@@ -1186,7 +1186,7 @@ function vhdl_test_generation(
         vhdl_str *= "\t\tif $(output_name) = to_stdlogicvector(expected_$(output_name)) then\n"
         vhdl_str *= "\t\t\ttestSuccess_$(output_name) := true;\n"
         vhdl_str *= "\t\telse\n"
-        vhdl_str *= "\t\t\treport \"For $(output_name): expected \" & integer'image(to_integer($(twos_complement ? "" : "un")signed(to_stdlogicvector(expected_$(output_name))))) & \" but got \" & integer'image(to_integer($(twos_complement ? "" : "un")signed(to_stdlogicvector($(output_name))))) severity note;\n"
+        vhdl_str *= "\t\t\treport \"For $(output_name): expected \" & integer'image(to_integer($(twos_complement ? "" : "un")signed(to_stdlogicvector(expected_$(output_name))))) & \" but got \" & integer'image(to_integer($(twos_complement ? "" : "un")signed($(output_name)))) severity note;\n"
         vhdl_str *= "\t\tend if;\n\n"
     end
 
