@@ -969,7 +969,7 @@ function vhdl_output_tables(
         end
         output_name = signal_output_naming(abs(output_value))
         vhdl_str *= """
-        \n\ttype lut_$(output_name) is array (natural range $(twos_complement ? -2^(wordlength_in-1) : 0) to $(twos_complement ? 2^(wordlength_in-1)-1 : 2^(wordlength_in)-1)) of std_logic_vector($(wl_adder_dsp-1) downto 0);
+        \n\ttype lut_$(output_name) is array ($(twos_complement ? "integer" : "natural") range $(twos_complement ? -2^(wordlength_in-1) : 0) to $(twos_complement ? 2^(wordlength_in-1)-1 : 2^(wordlength_in)-1)) of std_logic_vector($(wl_adder_dsp-1) downto 0);
         \tsignal bitcount_$(output_name) : lut_$(output_name) := (
         """
         vhdl_str *= "\t\t"
