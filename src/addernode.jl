@@ -54,7 +54,15 @@ end
 
 function get_adder_wordlength(addernode::AdderNode, wordlength_in::Int; signed::Bool=true, kwargs...)
     # return round(Int, signed+log2(abs(get_value(addernode) * ((-1)^(signed)*2^(wordlength_in-signed) - (1-signed)) + (-1)^(signed)*maximum(abs.(adder_value_bounds_zeros(addernode)[1])))), RoundUp)
-    return round(Int, log2(get_value(addernode) * (2^wordlength_in - 1) + maximum(abs.(adder_value_bounds_zeros(addernode)[1]))), RoundUp)
+    if signed
+        return 1 + max(
+            round(Int, log2(get_value(addernode) * (2^(wordlength_in-1) - 1) + abs(adder_value_bounds_zeros(addernode)[1][1])), RoundUp),
+            round(Int, log2(abs(get_value(addernode) * (-(2^(wordlength_in-1))) - abs(adder_value_bounds_zeros(addernode)[1][2]))), RoundUp)
+        )
+    else
+        return round(Int, log2(get_value(addernode) * (2^wordlength_in - 1) + abs(adder_value_bounds_zeros(addernode)[1][2])), RoundUp)
+    end
+    # return round(Int, log2(get_value(addernode) * (2^wordlength_in - 1) + maximum(abs.(adder_value_bounds_zeros(addernode)[1]))), RoundUp)
 end
 
 function get_input_wordlengths(addernode::AdderNode, wordlength_in::Int)
