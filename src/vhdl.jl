@@ -954,7 +954,11 @@ function vhdl_output_tables(
         if output_value < 0 && -output_value in output_values
             continue
         end
+        #TODO include truncations in LUTs
         wlout = round(Int, log2((2^(wordlength_in) - 1)*abs(output_value)), RoundUp)
+        if twos_complement
+            wlout = 1 + round(Int, log2(abs(abs(output_value) * (-(2^(wordlength_in-1))))), RoundUp)
+        end
         lut_outputs = Vector{Vector{Bool}}([reverse(digits(abs(output_value)*i, base=2, pad=wlout))[1:wlout] for i in 0:((2^wordlength_in)-1)])
         if twos_complement
             lut_outputs = Vector{Vector{Bool}}([[parse(Int, curr_digit) for curr_digit in bitstring(abs(output_value)*i)][(end-wlout+1):end] for i in ((-2^(wordlength_in-1))):((2^(wordlength_in-1))-1)])
