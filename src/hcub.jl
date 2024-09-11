@@ -13,6 +13,12 @@ function read_hcub_output(s::String, C::Vector{Int})
         node_input_shifts = Vector{Int}([abs(parse(Int, node_input_shifts_str[i]))-1 for i in 1:2])
         node_inputs = Vector{Int}([parse(Int, input_details[1]), parse(Int, input_details[2])])
         node_subtraction = Vector{Bool}([('-' == node_input_shifts_str[i][1]) for i in 1:2])
+        if maximum(node_input_shifts) == 0
+            sum_inputs = sum(((-1)^node_subtraction[i])*node_inputs[i] for i in 1:2)
+            node_input_shifts[1] = -log2odd(sum_inputs)
+            node_input_shifts[2] = -log2odd(sum_inputs)
+            @assert div(sum_inputs, 2^(log2odd(sum_inputs))) == node_value
+        end
         addernode_inputs = Vector{AdderNode}([get_addernodes_by_value(addergraph, node_inputs[i])[end] for i in 1:2])
         push_node!(addergraph,
             AdderNode(
