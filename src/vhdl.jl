@@ -1241,7 +1241,7 @@ function vhdl_test_generation(
 
     vhdl_str *= """
         begin
-            wait for 1000 ns; -- Initialize
+            -- wait for 10*PERIOD; -- Initialize
             rst <= '1';
             wait for PERIOD;
             rst <= '0';
@@ -1264,9 +1264,9 @@ function vhdl_test_generation(
     vhdl_str *= "\t\tvariable testSuccess : boolean;\n"
 
     vhdl_str *= "\tbegin\n"
-    vhdl_str *= "\t\twait for 1000 ns; -- Initialize\n"
+    vhdl_str *= "\t\t-- wait for 10*PERIOD; -- Initialize\n"
     vhdl_str *= "\t\twait for PERIOD; -- For rst\n"
-    vhdl_str *= "\t\twait for HIGH_TIME/2; -- For evaluation\n"
+    vhdl_str *= "\t\twait for HIGH_TIME; -- For evaluation\n"
     if pipeline
         vhdl_str *= "\t\twait for PERIOD*$(get_adder_depth(addergraph)-1); -- For pipeline\n"
     elseif pipeline_inout
@@ -1454,7 +1454,7 @@ function vhdl_simulation_generation(
 
     vhdl_str *= """
         begin
-            wait for 1000 ns; -- Initialize
+            -- wait for 10*PERIOD; -- Initialize
             rst <= '1';
             wait for PERIOD;
             rst <= '0';
