@@ -269,7 +269,7 @@ function hls_addergraph_generation(
         shift = round(Int, log2(abs(output_value)/odd(abs(output_value))))
         hls_str *= "\t$(output_name) = $(variable_output_name)$(shift > 0 ? " << $(shift)" : "");\n"
         ag_output_name = output_naming_hls(output_value)
-        hls_str *= "\t$(ag_output_name) = $(output_name);\n"
+        hls_str *= "\t$(ag_output_name) = $(output_value < 0 ? "-" : "")$(output_name);\n"
     end
 
     hls_str *= "}\n"
