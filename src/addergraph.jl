@@ -202,8 +202,8 @@ function write_addergraph(addergraph::AdderGraph; pipeline::Bool=false, flopoco_
         coef = coefficients[coefind]
         if coef != 0
             value = odd(abs(coef))
-            if !(abs(coef) in output_values)
-                push!(output_values, abs(coef))
+            if !(coef in output_values)
+                push!(output_values, coef)
                 shift = round(Int, log2(abs(coef)/value))
                 if !firstcoefnocomma
                     adderstring *= ","
@@ -211,12 +211,12 @@ function write_addergraph(addergraph::AdderGraph; pipeline::Bool=false, flopoco_
                     firstcoefnocomma = false
                 end
                 if abs(value) in dsp_values
-                    adderstring *= "{'O',[$(abs(coef))],$(maximum_depth),[$(value)],-1,$(shift)}"
+                    adderstring *= "{'O',[$(coef)],$(maximum_depth),[$(value)],-1,$(shift)}"
                 else
                     if !pipeline
-                        adderstring *= "{'O',[$(abs(coef))],$(maximum_depth),[$(value)],$(maximum(get_depth.(get_addernodes_by_value(addergraph, value)))),$(shift)}"
+                        adderstring *= "{'O',[$(coef)],$(maximum_depth),[$(value)],$(maximum(get_depth.(get_addernodes_by_value(addergraph, value)))),$(shift)}"
                     else
-                        adderstring *= "{'O',[$(abs(coef))],$(maximum_depth),[$(value)],$(maximum_depth),$(shift)}"
+                        adderstring *= "{'O',[$(coef)],$(maximum_depth),[$(value)],$(maximum_depth),$(shift)}"
                     end
                 end
             end
