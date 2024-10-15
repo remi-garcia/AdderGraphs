@@ -165,7 +165,7 @@ function hls_addergraph_generation(
     output_values = unique(get_outputs(addergraph))
 
     hls_str = "#include \"ap_int.h\"\n\n"
-    adder_ports = Dict{String, String}()
+    adder_ports = Dict{AdderNode, String}()
     current_adder = 1
     for addernode in get_nodes(addergraph)
         current_adder_function_name = ""
@@ -176,6 +176,7 @@ function hls_addergraph_generation(
         current_adder_function_name, adder_hls_str = adder_generation_hls(addernode, addergraph; wordlength_in=wordlength_in, function_name=current_adder_function_name, twos_complement=twos_complement, kwargs...)
         hls_str *= adder_hls_str
         hls_str *= "\n\n\n"
+        adder_ports[addernode] = current_adder_function_name
     end
 
     if isempty(addergraph_function_name)
@@ -249,7 +250,7 @@ function hls_addergraph_generation(
         # hls_str *= "\t$(variable_left_name) = $(variable_left_output_name);\n"
         # hls_str *= "\t$(variable_right_name) = $(variable_right_output_name);\n"
         # hls_str *= "\t$(variable_output_name) = $(function_naming(addernode))($(variable_left_name), $(variable_right_name));\n"
-        hls_str *= "\t$(variable_output_name) = $(function_naming(addernode))($(variable_left_output_name), $(variable_right_output_name));\n"
+        hls_str *= "\t$(variable_output_name) = $(adder_ports[addernode])($(variable_left_output_name), $(variable_right_output_name));\n"
     end
 
     for dsp_value in get_dsp(addergraph)
