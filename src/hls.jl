@@ -58,6 +58,8 @@ function adder_generation_hls(
         wordlength_in::Int,
         verbose::Bool=false,
         function_name::String="",
+        adder_function_name_prefix::String="",
+        adder_function_name_suffix::String="",
         twos_complement::Bool=true,
         kwargs...
     )
@@ -65,6 +67,7 @@ function adder_generation_hls(
     if isempty(function_name)
         function_name = function_naming(addernode)
     end
+    function_name = "$(adder_function_name_prefix)$(isempty(adder_function_name_prefix) ? "" : "_")$(function_name)$(isempty(adder_function_name_suffix) ? "" : "_")$(adder_function_name_suffix)"
     hls_str = ""
 
     addernode_value = get_value(addernode)
@@ -155,12 +158,10 @@ function hls_addergraph_generation(
         addergraph_function_name_prefix::String="",
         addergraph_function_name_suffix::String="",
         adder_function_name::String="",
-        adder_function_name_prefix::String="",
-        adder_function_name_suffix::String="",
         twos_complement::Bool=true,
         kwargs...
     )
-    addergraph_function_name = addergraph_function_name_prefix*"_"*addergraph_function_name*"_"*addergraph_function_name_suffix
+    addergraph_function_name = "$(addergraph_function_name_prefix)$(isempty(addergraph_function_name_prefix) ? "" : "_")$(addergraph_function_name)$(isempty(addergraph_function_name_suffix) ? "" : "_")$(addergraph_function_name_suffix)"
     output_values = unique(get_outputs(addergraph))
 
     hls_str = "#include \"ap_int.h\"\n\n"
@@ -169,7 +170,7 @@ function hls_addergraph_generation(
     for addernode in get_nodes(addergraph)
         current_adder_function_name = ""
         if !isempty(adder_function_name)
-            current_adder_function_name = "$(adder_function_name_prefix)_$(adder_function_name)_$(current_adder)_$(adder_function_name_suffix)"
+            current_adder_function_name = "$(adder_function_name)_$(current_adder)"
             current_adder += 1
         end
         current_adder_function_name, adder_hls_str = adder_generation_hls(addernode, addergraph; wordlength_in=wordlength_in, function_name=current_adder_function_name, twos_complement=twos_complement, kwargs...)
