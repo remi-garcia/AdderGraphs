@@ -160,7 +160,7 @@ function hls_addergraph_generation(
         twos_complement::Bool=true,
         kwargs...
     )
-    addergraph_function_name = addergraph_function_name_prefix*addergraph_function_name*addergraph_function_name_suffix
+    addergraph_function_name = addergraph_function_name_prefix*"_"*addergraph_function_name*"_"*addergraph_function_name_suffix
     output_values = unique(get_outputs(addergraph))
 
     hls_str = "#include \"ap_int.h\"\n\n"
