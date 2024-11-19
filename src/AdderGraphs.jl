@@ -88,6 +88,7 @@ export isempty
 export get_nodes
 export get_dsp
 export push_node!
+export remove_node!
 export push_output!
 export push_dsp!
 export get_outputs

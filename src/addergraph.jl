@@ -31,6 +31,18 @@ function push_node!(addergraph::AdderGraph, inputs::Vector{InputEdge})
     push_node!(addergraph, AdderNode(_compute_value_from_inputs(inputs), inputs))
 end
 
+function remove_node!(addergraph::AdderGraph, addernode::AdderNode)
+    addernodes = get_nodes(addergraph)
+    addernode_index = 0
+    for i in 1:length(addernodes)
+        if addernodes[i] == addernode
+            addernode_index = i
+        end
+    end
+    deleteat!(addernodes, addernode_index)
+    return addernode
+end
+
 function push_output!(addergraph::AdderGraph, output_value::Int)
     push!(addergraph.outputs, output_value)
     return addergraph
