@@ -226,7 +226,12 @@ function write_addergraph(addergraph::AdderGraph; pipeline::Bool=false, flopoco_
                     adderstring *= "{'O',[$(coef)],$(maximum_depth),[$(value)],-1,$(shift)}"
                 else
                     if !pipeline
-                        adderstring *= "{'O',[$(coef)],$(maximum_depth),[$(value)],$(maximum(get_depth.(get_addernodes_by_value(addergraph, value)))),$(shift)}"
+                        prev_possible_depths = get_depth.(get_addernodes_by_value(addergraph, value))
+                        prev_depth_str = "-"
+                        if !isempty(prev_possible_depths)
+                            prev_depth_str = maximum(prev_possible_depths)
+                        end
+                        adderstring *= "{'O',[$(coef)],$(maximum_depth),[$(value)],$(prev_depth_str),$(shift)}"
                     else
                         adderstring *= "{'O',[$(coef)],$(maximum_depth),[$(value)],$(maximum_depth),$(shift)}"
                     end
