@@ -295,9 +295,29 @@ function isvalid(addergraph::AdderGraph; verbose::Bool=false)
         if right_neg
             right_value = -right_value
         end
-        if get_value(addernode) != left_value*(2.0^left_shift)+right_value*(2.0^right_shift)
-            verbose && println("Adder fundamental not correctly computed:\n\t$(get_value(addernode)) ≠ $(left_value)*(2^$(left_shift))+$(right_value)*(2^$(right_shift))")
-            return false
+        # Removed due to FP inaccuracy
+        # if get_value(addernode) != left_value*(2.0^left_shift)+right_value*(2.0^right_shift)
+        #     verbose && println("Adder fundamental not correctly computed:\n\t$(get_value(addernode)) ≠ $(left_value)*(2^$(left_shift))+$(right_value)*(2^$(right_shift))")
+        #     return false
+        # end
+        if left_shift => 0 && right_shift => 0
+            if get_value(addernode) != left_value*(2^left_shift)+right_value*(2^right_shift)
+                verbose && println("Adder fundamental not correctly computed:\n\t$(get_value(addernode)) ≠ $(left_value)*(2^$(left_shift))+$(right_value)*(2^$(right_shift))")
+                return false
+            end
+        else
+            node_shift = -left_shift
+            left_shift = 0
+            right_shift = right_shift - left_shift
+            if right_shift < 0
+                node_shift -= right_shift
+                left_shift = left_shift - right_shift
+                right_shift = 0
+            end
+            if (2^node_shift)*get_value(addernode) != left_value*(2^left_shift)+right_value*(2^right_shift)
+                verbose && println("Adder fundamental not correctly computed:\n\t$(get_value(addernode)) ≠ $(left_value)*(2^$(left_shift))+$(right_value)*(2^$(right_shift))")
+                return false
+            end
         end
     end
     return true
