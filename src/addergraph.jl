@@ -300,7 +300,7 @@ function isvalid(addergraph::AdderGraph; verbose::Bool=false)
         #     verbose && println("Adder fundamental not correctly computed:\n\t$(get_value(addernode)) ≠ $(left_value)*(2^$(left_shift))+$(right_value)*(2^$(right_shift))")
         #     return false
         # end
-        if left_shift => 0 && right_shift => 0
+        if left_shift >= 0 && right_shift >= 0
             if get_value(addernode) != left_value*(2^left_shift)+right_value*(2^right_shift)
                 verbose && println("Adder fundamental not correctly computed:\n\t$(get_value(addernode)) ≠ $(left_value)*(2^$(left_shift))+$(right_value)*(2^$(right_shift))")
                 return false
