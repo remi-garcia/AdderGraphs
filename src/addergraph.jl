@@ -269,7 +269,7 @@ function write_addergraph(addergraph::AdderGraph; pipeline::Bool=false, flopoco_
 end
 
 
-function isvalid(addergraph::AdderGraph)
+function isvalid(addergraph::AdderGraph; verbose::Bool=false)
     addernodes = get_nodes(addergraph)
     dsp_values = get_dsp(addergraph)
     node_values = get_value.(addernodes)
@@ -281,6 +281,7 @@ function isvalid(addergraph::AdderGraph)
             continue
         end
         if !(output in node_values)
+            verbose && println("Output not produced: $(output)")
             return false
         end
     end
@@ -295,6 +296,7 @@ function isvalid(addergraph::AdderGraph)
             right_value = -right_value
         end
         if get_value(addernode) != left_value*(2.0^left_shift)+right_value*(2.0^right_shift)
+            verbose && println("Adder fundamental not correctly computed:\n\t$(get_value(addernode)) ≠ $(left_value)*(2^$(left_shift))+$(right_value)*(2^$(right_shift))")
             return false
         end
     end
