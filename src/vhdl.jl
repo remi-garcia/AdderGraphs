@@ -295,7 +295,7 @@ function vhdl_addergraph_generation(
     output_values = unique(get_outputs(addergraph))
     oddabs_output_values = unique(odd.(abs.(output_values)))
 
-    vhdl_str = ""
+    vhdl_strs = Vector{Tuple{String, String}}()
     adder_ports = Dict{String, String}()
     current_adder = 1
     for addernode in get_nodes(addergraph)
@@ -306,13 +306,13 @@ function vhdl_addergraph_generation(
         end
         current_adder_entity_name, adder_port_str, adder_vhdl_str = adder_generation_vhdl(addernode, addergraph; wordlength_in=wordlength_in, target_frequency=target_frequency, adder_entity_name=current_adder_entity_name, kwargs...)
         adder_ports[current_adder_entity_name] = adder_port_str
-        vhdl_str *= adder_vhdl_str
-        vhdl_str *= "\n\n\n"
+        push!(vhdl_strs, (adder_vhdl_str, current_adder_entity_name))
     end
 
     if isempty(entity_name)
         entity_name = entity_naming(addergraph)
     end
+    vhdl_str = ""
     vhdl_str *= """
     --------------------------------------------------------------------------------
     --                      $(entity_name)
@@ -697,7 +697,9 @@ function vhdl_addergraph_generation(
 
     vhdl_str *= "end architecture;\n"
 
-    return entity_name, vhdl_str, port_str
+    push!(vhdl_strs, (vhdl_str, entity_name))
+
+    return entity_name, vhdl_strs, port_str
 end
 
 
@@ -721,6 +723,7 @@ function vhdl_output_products(
         entity_name = "Products_"*entity_naming(output_values)
     end
 
+    vhdl_strs = Vector{Tuple{String, String}}()
     vhdl_str = """
     --------------------------------------------------------------------------------
     --                      $(entity_name)
@@ -852,7 +855,9 @@ function vhdl_output_products(
 
     vhdl_str *= "end architecture;\n"
 
-    return vhdl_str
+    push!(vhdl_strs, (vhdl_str, entity_name))
+
+    return vhdl_strs
 end
 
 
@@ -875,6 +880,7 @@ function vhdl_output_tables(
         entity_name = "Tables_"*entity_naming(output_values)
     end
 
+    vhdl_strs = Vector{Tuple{String, String}}()
     vhdl_str = """
     --------------------------------------------------------------------------------
     --                      $(entity_name)
@@ -1018,6 +1024,8 @@ function vhdl_output_tables(
     end
 
     vhdl_str *= "end architecture;\n"
+
+    push!(vhdl_strs, (vhdl_str, entity_name))
 
     return vhdl_str
 end
@@ -1487,6 +1495,7 @@ function write_vhdl(
         verbose::Bool=false,
         with_tests::Bool=true,
         with_simulation::Bool=true,
+        single_file::Bool=false,
         kwargs...
     )
     if isempty(entity_name)
@@ -1502,14 +1511,26 @@ function write_vhdl(
 
     vhdl_str = ""
     if !no_addergraph
-        _, vhdl_str, _ = vhdl_addergraph_generation(addergraph; entity_name=entity_name, verbose=verbose, kwargs...)
+        _, vhdl_strs, _ = vhdl_addergraph_generation(addergraph; entity_name=entity_name, verbose=verbose, kwargs...)
     elseif use_tables
-        vhdl_str = vhdl_output_tables(addergraph; verbose=verbose, entity_name=entity_name, kwargs...)
+        vhdl_strs = vhdl_output_tables(addergraph; verbose=verbose, entity_name=entity_name, kwargs...)
     else
-        vhdl_str = vhdl_output_products(addergraph; verbose=verbose, entity_name=entity_name, kwargs...)
+        vhdl_strs = vhdl_output_products(addergraph; verbose=verbose, entity_name=entity_name, kwargs...)
     end
-    open(vhdl_filename, "w") do writefile
-        write(writefile, vhdl_str)
+    if single_file
+        open(vhdl_filename, "w") do writefile
+            for (vhdl_str, _) in vhdl_strs
+                write(writefile, vhdl_str)
+                write(writefile, "\n\n\n")
+            end
+        end
+    else
+        for (vhdl_str, entity_name) in vhdl_strs
+            base_vhdl_filename = string(vhdl_filename[1:findlast(==('.'), vhdl_filename)-1])
+            open("$(base_vhdl_filename)_$(entity_name).vhdl", "w") do writefile
+                write(writefile, vhdl_str)
+            end
+        end
     end
 
     if with_tests
