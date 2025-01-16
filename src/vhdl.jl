@@ -1027,7 +1027,8 @@ function vhdl_output_tables(
 
     push!(vhdl_strs, (vhdl_str, entity_name))
 
-    return vhdl_str
+    return vhdl_strs
+end
 end
 
 
