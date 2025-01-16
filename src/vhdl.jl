@@ -1496,6 +1496,7 @@ function write_vhdl(
         with_tests::Bool=true,
         with_simulation::Bool=true,
         single_file::Bool=false,
+        ag_filename::String="",
         kwargs...
     )
     if isempty(entity_name)
@@ -1525,10 +1526,19 @@ function write_vhdl(
             end
         end
     else
-        for (vhdl_str, entity_name) in vhdl_strs
-            base_vhdl_filename = string(vhdl_filename[1:findlast(==('.'), vhdl_filename)-1])
+        base_vhdl_filename = string(vhdl_filename[1:findlast(==('.'), vhdl_filename)-1])
+        for (vhdl_str, entity_name) in vhdl_strs[1:end-1]
             open("$(base_vhdl_filename)_$(entity_name).vhdl", "w") do writefile
                 write(writefile, vhdl_str)
+            end
+        end
+        if isempty(ag_filename)
+            open("$(base_vhdl_filename)_$(entity_name).vhdl", "w") do writefile
+                write(writefile, vhdl_strs[end][1])
+            end
+        else
+            open("$(ag_filename)", "w") do writefile
+                write(writefile, vhdl_strs[end][1])
             end
         end
     end
