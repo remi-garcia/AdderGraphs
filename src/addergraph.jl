@@ -307,8 +307,8 @@ function isvalid(addergraph::AdderGraph; verbose::Bool=false)
             end
         else
             node_shift = -left_shift
-            left_shift = 0
             right_shift = right_shift - left_shift
+            left_shift = 0
             if right_shift < 0
                 node_shift -= right_shift
                 left_shift = left_shift - right_shift
