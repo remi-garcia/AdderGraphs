@@ -56,7 +56,7 @@ end
 function adder_generation_vhdl(
         addernode::AdderNode, addergraph::AdderGraph;
         wordlength_in::Int,
-        target_frequency::Int=200,
+        target_frequency::Int,
         verbose::Bool=false,
         adder_entity_name::String="",
         apply_truncations::Bool=true,
@@ -277,7 +277,7 @@ function vhdl_addergraph_generation(
         wordlength_in::Int, pipeline::Bool=false,
         pipeline_inout::Bool=false,
         with_clk::Bool=true,
-        target_frequency::Int=200,
+        target_frequency::Int,
         verbose::Bool=false,
         entity_name::String="",
         adder_entity_names::String="",
@@ -708,7 +708,7 @@ function vhdl_output_products(
         wordlength_in::Int,
         pipeline_inout::Bool=false,
         with_clk::Bool=true,
-        target_frequency::Int=200,
+        target_frequency::Int,
         force_dsp::Bool=false,
         verbose::Bool=false,
         entity_name::String="",
@@ -866,7 +866,7 @@ function vhdl_output_tables(
         wordlength_in::Int,
         pipeline_inout::Bool=false,
         with_clk::Bool=true,
-        target_frequency::Int=200,
+        target_frequency::Int,
         verbose::Bool=false,
         entity_name::String="",
         twos_complement::Bool=true,
@@ -1040,7 +1040,7 @@ function vhdl_test_generation(
         verbose::Bool=false,
         pipeline::Bool=false,
         pipeline_inout::Bool=false,
-        target_frequency::Int=200,
+        target_frequency::Int,
         entity_name::String="",
         tests_entity_name::String="",
         inputs_filename::String="test.input",
@@ -1315,7 +1315,7 @@ function vhdl_simulation_generation(
         wordlength_in::Int,
         with_clk::Bool=true,
         verbose::Bool=false,
-        target_frequency::Int=200,
+        target_frequency::Int,
         entity_name::String="",
         simulation_entity_name::String="",
         simulation_inputs_filename::String="sim.input",
@@ -1496,7 +1496,18 @@ function write_vhdl(
         with_tests::Bool=true,
         with_simulation::Bool=true,
         single_file::Bool=false,
+        target_frequency::Int=200,
         ag_filename::String="",
+        with_cmd::Bool=true,
+        cmd_filename::String="cmd.sh",
+        cmd_part::String="xc7k70tfbv484-3",
+        cmd_project::String="",
+        cmd_results::String="",
+        cmd_keep::Bool=false,
+        cmd_implement::Bool=true,
+        cmd_delay::Bool=true,
+        cmd_tcl::Bool=false,
+        cmd_ooc_entities::Bool=true,
         kwargs...
     )
     if isempty(entity_name)
@@ -1512,11 +1523,15 @@ function write_vhdl(
 
     vhdl_str = ""
     if !no_addergraph
-        _, vhdl_strs, _ = vhdl_addergraph_generation(addergraph; entity_name=entity_name, verbose=verbose, kwargs...)
+        _, vhdl_strs, _ = vhdl_addergraph_generation(addergraph; entity_name=entity_name, verbose=verbose, target_frequency=target_frequency, kwargs...)
     elseif use_tables
-        vhdl_strs = vhdl_output_tables(addergraph; verbose=verbose, entity_name=entity_name, kwargs...)
+        vhdl_strs = vhdl_output_tables(addergraph; verbose=verbose, entity_name=entity_name, target_frequency=target_frequency, kwargs...)
     else
-        vhdl_strs = vhdl_output_products(addergraph; verbose=verbose, entity_name=entity_name, kwargs...)
+        vhdl_strs = vhdl_output_products(addergraph; verbose=verbose, entity_name=entity_name, target_frequency=target_frequency, kwargs...)
+    end
+    base_vhdl_filename = string(vhdl_filename[1:findlast(==('.'), vhdl_filename)-1])
+    if isempty(ag_filename)
+        ag_filename = "$(base_vhdl_filename)_$(entity_name).vhdl"
     end
     if single_file
         open(vhdl_filename, "w") do writefile
@@ -1526,20 +1541,13 @@ function write_vhdl(
             end
         end
     else
-        base_vhdl_filename = string(vhdl_filename[1:findlast(==('.'), vhdl_filename)-1])
         for (vhdl_str, entity_name) in vhdl_strs[1:end-1]
             open("$(base_vhdl_filename)_$(entity_name).vhdl", "w") do writefile
                 write(writefile, vhdl_str)
             end
         end
-        if isempty(ag_filename)
-            open("$(base_vhdl_filename)_$(entity_name).vhdl", "w") do writefile
-                write(writefile, vhdl_strs[end][1])
-            end
-        else
-            open("$(ag_filename)", "w") do writefile
-                write(writefile, vhdl_strs[end][1])
-            end
+        open(ag_filename, "w") do writefile
+            write(writefile, vhdl_strs[end][1])
         end
     end
 
@@ -1548,6 +1556,7 @@ function write_vhdl(
         vhdl_str = vhdl_test_generation(
             addergraph;
             verbose=verbose,
+            target_frequency=target_frequency,
             entity_name=entity_name,
             kwargs...
         )
@@ -1561,11 +1570,55 @@ function write_vhdl(
         vhdl_str = vhdl_simulation_generation(
             addergraph;
             verbose=verbose,
+            target_frequency=target_frequency,
             entity_name=entity_name,
             kwargs...
         )
         open(vhdl_simulation_filename, "w") do writefile
             write(writefile, vhdl_str)
+        end
+    end
+    if with_cmd
+        cmd_run_vivado = "run_vivado.sh -v --part $(cmd_part) -f $(target_frequency) -vhdl addergraph_ag_only.vhdl -avhdl addergraph_adder5.vhdl -avhdl addergraph_adder117.vhdl -avhdl addergraph_adder195.vhdl -avhdl addergraph_adder13.vhdl -k"
+        if isempty(cmd_project)
+            cmd_run_vivado *= " -p=$(cmd_project)"
+        end
+        if isempty(cmd_results)
+            cmd_run_vivado *= " -r=$(cmd_results)"
+        end
+        if cmd_keep
+            cmd_run_vivado *= " -k"
+        end
+        if cmd_implement
+            cmd_run_vivado *= " -i"
+        end
+        if cmd_delay
+            cmd_run_vivado *= " -d"
+        end
+        if cmd_tcl
+            cmd_run_vivado *= " -t"
+        end
+        if with_tests
+            cmd_run_vivado *= " -bs $(vhdl_test_filename)"
+        end
+        if with_simulation
+            cmd_run_vivado *= " -s $(vhdl_simulation_filename)"
+        end
+        if single_file
+            cmd_run_vivado *= " -vhdl $(vhdl_filename)"
+        else
+            cmd_run_vivado *= " -vhdl $(ag_filename)"
+            if length(vhdl_strs) > 1
+                for (vhdl_str, entity_name) in vhdl_strs[1:end-1]
+                    cmd_run_vivado *= " -avhdl $(base_vhdl_filename)_$(entity_name).vhdl"
+                    if cmd_ooc_entities
+                        cmd_run_vivado *= " -ooc_entity $(entity_name)"
+                    end
+                end
+            end
+        end
+        open(cmd_filename, "w") do writefile
+            write(writefile, cmd_run_vivado)
         end
     end
     return nothing
