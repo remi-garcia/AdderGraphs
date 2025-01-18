@@ -1544,7 +1544,7 @@ function vhdl_simulation_generation(
         target_frequency::Int,
         entity_name::String="",
         simulation_entity_name::String="",
-        simulation_inputs_filename::String="sim.input",
+        simulation_inputs_filename::String="test.input",
         kwargs...
     )
     output_values = unique(get_outputs(addergraph))
