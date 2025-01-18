@@ -1847,7 +1847,7 @@ function write_vhdl(
                 for (vhdl_str, curr_entity_name) in vhdl_strs[1:end-1]
                     cmd_run_vivado *= " -avhdl $(base_vhdl_filename)_$(curr_entity_name).vhdl"
                     if cmd_ooc_entities
-                        cmd_run_vivado *= " -ooc_entity $(curr_entity_name)"
+                        cmd_run_vivado *= " --ooc_entity $(curr_entity_name)"
                     end
                 end
             end
