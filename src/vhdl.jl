@@ -1132,10 +1132,9 @@ function vhdl_output_compressortrees(
 
     flopoco_filename = "tmp.vhdl"
     wl_ct = Dict{Int, Int}()
-    for output_value in output_values
+    for output_value in unique(odd.(abs.(output_values)))
         #DONE flopoco gen cmd
         wl_adder_dsp = 0
-        shift = round(Int, log2(abs(output_value)/odd(abs(output_value))))
         if !done_with_dsp(addergraph, output_value)
             addernode = get_output_addernode(addergraph, output_value)
             wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
@@ -1143,7 +1142,7 @@ function vhdl_output_compressortrees(
             dsp_value = get_output_dsp(addergraph, output_value)
             wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
         end
-        curr_bitstring = reverse(bitstring(output_value)[(end-wl_adder_dsp+1-shift):end])
+        curr_bitstring = reverse(bitstring(output_value)[(end-wl_adder_dsp+1):end])
         nb_ones = count(i->(i=='1'), curr_bitstring)
         curr_shifts = [i[1]-1 for i in collect.(findall(r"1", curr_bitstring))]
         curr_ct_entity = ct_entity_naming(output_value)
@@ -1179,9 +1178,8 @@ function vhdl_output_compressortrees(
         vhdl_str *= "\t\t$(curr_ct_ports)\n"
         vhdl_str *= "\tend component;\n\n"
     end
-    for output_value in output_values
+    for output_value in unique(odd.(abs.(output_values)))
         #TODO include truncations
-        shift = round(Int, log2(abs(output_value)/odd(abs(output_value))))
         wl_adder_dsp = 0
         if !done_with_dsp(addergraph, output_value)
             addernode = get_output_addernode(addergraph, output_value)
@@ -1191,7 +1189,7 @@ function vhdl_output_compressortrees(
             wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
         end
         output_name = signal_output_naming(output_value)
-        vhdl_str *= "signal $(output_name) : std_logic_vector($(wl_adder_dsp-1+shift) downto 0);\n"
+        vhdl_str *= "signal $(output_name) : std_logic_vector($(wl_adder_dsp-1) downto 0);\n"
         if wl_adder_dsp != wl_ct[output_value]
             vhdl_str *= "signal $(output_name)_ct : std_logic_vector($(wl_ct[output_value]-1) downto 0);\n"
         end
@@ -1201,7 +1199,8 @@ function vhdl_output_compressortrees(
     if !pipeline_inout
         vhdl_str *= "\t$(signal_input_name) <= input_x;\n"
         for output_value in output_values
-            vhdl_str *= "\t$(output_naming_vhdl(output_value)) <= $(signal_output_naming(abs(owutput_value)));\n"
+            shift = round(Int, log2(abs(output_value)/odd(abs(output_value))))
+            vhdl_str *= "\t$(output_naming_vhdl(output_value)) <= $(sign(output_value) == -1 ? "-" : "")$(signal_output_naming(odd(abs(output_value))))$(shift != 0 ? " & \"$(repeat("0", shift))\"" : "");\n"
         end
     else
         # https://stackoverflow.com/questions/9989913/vhdl-how-to-use-clk-and-reset-in-process
@@ -1213,14 +1212,14 @@ function vhdl_output_compressortrees(
         vhdl_str *= "\t\tif(rising_edge(clk)) then\n"
         vhdl_str *= "\t\t\t$(signal_input_name) <= input_x;\n"
         for output_value in output_values
-            vhdl_str *= "\t\t\t$(output_naming_vhdl(output_value)) <= $(signal_output_naming(output_value));\n"
+            shift = round(Int, log2(abs(output_value)/odd(abs(output_value))))
+            vhdl_str *= "\t$(output_naming_vhdl(output_value)) <= $(sign(output_value) == -1 ? "-" : "")$(signal_output_naming(odd(abs(output_value))))$(shift != 0 ? " & \"$(repeat("0", shift))\"" : "");\n"
         end
         vhdl_str *= "\t\tend if;\n"
         vhdl_str *= "\tend process;\n"
     end
 
-    for output_value in output_values
-        shift = round(Int, log2(abs(output_value)/odd(abs(output_value))))
+    for output_value in unique(odd.(abs.(output_values)))
         wl_adder_dsp = 0
         if !done_with_dsp(addergraph, output_value)
             addernode = get_output_addernode(addergraph, output_value)
@@ -1233,19 +1232,19 @@ function vhdl_output_compressortrees(
         output_name = signal_output_naming(abs(output_value))
         vhdl_str *= "\tct_$(output_value): $(curr_ct_entity)\n"
         vhdl_str *= "\t\tport map (\n"
-        curr_bitstring = reverse(bitstring(output_value)[(end-wl_adder_dsp+1-shift):end])
+        curr_bitstring = reverse(bitstring(output_value)[(end-wl_adder_dsp+1):end])
         nb_ones = count(i->(i=='1'), curr_bitstring)
         for i in 1:nb_ones
             vhdl_str *= "\t\t\tX$(i-1) => $(signal_input_name),\n"
         end
-        if wl_adder_dsp+shift != wl_ct[output_value]
+        if wl_adder_dsp != wl_ct[output_value]
             vhdl_str *= "\t\t\tR => $(signal_output_naming(output_value))_ct\n"
         else
             vhdl_str *= "\t\t\tR => $(signal_output_naming(output_value))\n"
         end
         vhdl_str *= "\t\t);\n"
-        if wl_adder_dsp+shift != wl_ct[output_value]
-            vhdl_str *= "\t$(signal_output_naming(output_value)) <= $(signal_output_naming(output_value))_ct($(wl_adder_dsp-1+shift) downto 0);\n"
+        if wl_adder_dsp != wl_ct[output_value]
+            vhdl_str *= "\t$(signal_output_naming(output_value)) <= $(signal_output_naming(output_value))_ct($(wl_adder_dsp-1) downto 0);\n"
         end
         vhdl_str *= "\n"
     end
