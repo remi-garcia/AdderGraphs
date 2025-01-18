@@ -1165,7 +1165,7 @@ function vhdl_output_compressortrees(
                 flopoco_strs[i] = replace(flopoco_str, curr_entity => "$(curr_ct_entity)_$(curr_entity)")
                 curr_entity = "$(curr_ct_entity)_$(curr_entity)"
             else
-                flopoco_strs[i] = replace(flopoco_str, [prev_entity => "$(curr_ct_entity)_$(curr_entity)" for prev_entity in flopoco_prev_entities]...)
+                flopoco_strs[i] = replace(flopoco_str, [prev_entity => "$(curr_ct_entity)_$(prev_entity)" for prev_entity in flopoco_prev_entities]...)
                 curr_ct_ports = "port " * strip(match(r"(?<=port)((.|\n)*)(?=end entity)", flopoco_str).captures[1])
                 wl_ct[output_value] = parse(Int, strip(match(r"(?<=std_logic_vector\()((.)*)(?=downto)", split(curr_ct_ports, "\n")[1]).captures[1]))+1
             end
