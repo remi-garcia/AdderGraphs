@@ -1815,10 +1815,10 @@ function write_vhdl(
     end
     if with_cmd
         cmd_run_vivado = "run_vivado.sh -v --part $(cmd_part) -f $(target_frequency)"
-        if isempty(cmd_project)
+        if !isempty(cmd_project)
             cmd_run_vivado *= " -p=$(cmd_project)"
         end
-        if isempty(cmd_results)
+        if !isempty(cmd_results)
             cmd_run_vivado *= " -r=$(cmd_results)"
         end
         if cmd_keep
