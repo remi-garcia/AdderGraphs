@@ -65,7 +65,7 @@ include("truncations_errors.jl")
 include("registers.jl")
 include("addernode.jl")
 include("addergraph.jl")
-include("vhdl.jl")
+include("VHDL/vhdl.jl")
 include("hls.jl")
 include("hcub.jl")
 
