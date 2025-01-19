@@ -54,21 +54,17 @@ function write_cmd(
     if with_simulation
         cmd_run_vivado *= " -s $(vhdl_simulation_filename)"
     end
-    if single_file
-        cmd_run_vivado *= " -vhdl $(vhdl_filename)"
-    else
-        cmd_run_vivado *= " -vhdl $(ag_filename)"
-        if length(vhdl_strs) > 1
-            for (vhdl_str, curr_entity_name) in vhdl_strs[1:end-1]
-                cmd_run_vivado *= " -avhdl $(base_vhdl_filename)_$(curr_entity_name).vhdl"
-                if cmd_ooc_entities
-                    if use_compressor_trees
-                        if occursin("comb_uid", curr_entity_name)
-                            continue
-                        end
+    cmd_run_vivado *= " -vhdl $(ag_filename)"
+    if length(vhdl_strs) > 1
+        for (vhdl_str, curr_entity_name) in vhdl_strs[1:end-1]
+            cmd_run_vivado *= " -avhdl $(base_vhdl_filename)_$(curr_entity_name).vhdl"
+            if cmd_ooc_entities
+                if use_compressor_trees
+                    if occursin("comb_uid", curr_entity_name)
+                        continue
                     end
-                    cmd_run_vivado *= " --ooc_entity $(curr_entity_name)"
                 end
+                cmd_run_vivado *= " --ooc_entity $(curr_entity_name)"
             end
         end
     end
