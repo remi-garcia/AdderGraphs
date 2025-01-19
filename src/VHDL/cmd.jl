@@ -20,6 +20,7 @@ function write_cmd(
         cmd_delay::Bool=true,
         cmd_tcl::Bool=false,
         cmd_ooc_entities::Bool=false,
+        kwargs...
     )
     if cmd_tests
         with_tests = true
