@@ -1,0 +1,219 @@
+function vhdl_output_compressortrees(
+        addergraph::AdderGraph;
+        wordlength_in::Int,
+        pipeline_inout::Bool=false,
+        with_clk::Bool=true,
+        target_frequency::Int,
+        verbose::Bool=false,
+        entity_name::String="",
+        twos_complement::Bool=true,
+        kwargs...
+    )
+    if pipeline_inout
+        with_clk = true
+    end
+    output_values = unique(get_outputs(addergraph))
+    if isempty(entity_name)
+        entity_name = "CompressorTree_"*entity_naming(output_values)
+    end
+
+    vhdl_strs = Vector{Tuple{String, String}}()
+    vhdl_str = """
+    --------------------------------------------------------------------------------
+    --                      $(entity_name)
+    -- Authors: Rémi Garcia
+    --------------------------------------------------------------------------------
+    -- Target frequency (MHz): $(target_frequency)
+    -- Input signals: $(with_clk ? "clk " : "")input_x
+    -- Output signals: $(join([output_naming_vhdl(output_value) for output_value in output_values], " "))
+
+    library ieee;
+    use ieee.std_logic_1164.all;
+    use ieee.numeric_std.all;
+    library std;
+    """
+
+    # Entity
+    vhdl_str *= """
+    -- Generation of output LUTs
+    """
+
+    vhdl_str *= """
+    entity $(entity_name) is
+        port (
+    """
+    # Always provide input clock for correct power results with script
+    # if pipeline
+    if with_clk
+        vhdl_str *= "\t\tclk : in std_logic;"
+        vhdl_str *= " -- Clock\n"
+    end
+    # end
+    vhdl_str *= "\t\tinput_x : in std_logic_vector($(wordlength_in-1) downto 0);"
+    vhdl_str *= " -- Input\n"
+    if length(output_values) >= 2
+        for output_value in output_values[1:(end-1)]
+            output_name = output_naming_vhdl(output_value)
+            shift = round(Int, log2(abs(output_value)/odd(abs(output_value))))
+            wl_adder_dsp = 0
+            if !done_with_dsp(addergraph, output_value)
+                addernode = get_output_addernode(addergraph, output_value)
+                wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
+            else
+                dsp_value = get_output_dsp(addergraph, output_value)
+                wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
+            end
+            vhdl_str *= "\t\t$(output_name) : out std_logic_vector($(wl_adder_dsp-1+shift) downto 0);"
+            vhdl_str *= " -- Output $(output_value)\n"
+        end
+    end
+    output_value = output_values[end]
+    output_name = output_naming_vhdl(output_value)
+    shift = round(Int, log2(abs(output_value)/odd(abs(output_value))))
+    wl_adder_dsp = 0
+    if !done_with_dsp(addergraph, output_value)
+        addernode = get_output_addernode(addergraph, output_value)
+        wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
+    else
+        dsp_value = get_output_dsp(addergraph, output_value)
+        wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
+    end
+    vhdl_str *= "\t\t$(output_name) : out std_logic_vector($(wl_adder_dsp-1+shift) downto 0)"
+    vhdl_str *= " -- Output $(output_value)\n"
+    vhdl_str *= "\t);\n"
+    vhdl_str *= "end entity;\n"
+    vhdl_str *= "\n"
+
+    # Architecture
+    vhdl_str *= """
+    architecture arch of $(entity_name) is
+    """
+
+    signal_input_name = "x_in"
+    signal_input_wl = wordlength_in
+    vhdl_str *= "signal $(signal_input_name) : std_logic_vector($(signal_input_wl-1) downto 0);\n\n"
+
+    flopoco_filename = "tmp.vhdl"
+    wl_ct = Dict{Int, Int}()
+    for output_value in unique(odd.(abs.(output_values)))
+        #DONE flopoco gen cmd
+        wl_adder_dsp = 0
+        if !done_with_dsp(addergraph, output_value)
+            addernode = get_output_addernode(addergraph, output_value)
+            wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
+        else
+            dsp_value = get_output_dsp(addergraph, output_value)
+            wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
+        end
+        curr_bitstring = reverse(bitstring(output_value)[(end-wl_adder_dsp+1):end])
+        nb_ones = count(i->(i=='1'), curr_bitstring)
+        curr_shifts = [i[1]-1 for i in collect.(findall(r"1", curr_bitstring))]
+        curr_ct_entity = ct_entity_naming(output_value)
+        flopoco_cmd = "flopoco useTargetOpt=1 FixMultiAdder signedIn=$(twos_complement ? "1" : "0") n=$(nb_ones) msbIn=$(join(repeat([wordlength_in-1], nb_ones), ":")) lsbIn=$(join(repeat([0], nb_ones), ":")) shifts=$(join(curr_shifts, ":")) generateFigures=0 compression=optimal name=$(curr_ct_entity) outputFile=$(flopoco_filename)"
+        argv = Vector{String}(string.(split(flopoco_cmd)))
+        run(`$(argv)`)
+
+        #DONE split file into multiple strings
+        splitpoint = "end architecture;"
+        flopoco_strs = split(read(flopoco_filename, String), splitpoint) .* splitpoint
+        pop!(flopoco_strs)
+
+        #DONE Read entities and rename them (replace in strings)
+        flopoco_prev_entities = Vector{String}()
+        curr_ct_ports = ""
+        for i in 1:length(flopoco_strs)
+            flopoco_str = flopoco_strs[i]
+            curr_entity = strip(match(r"(?<=entity)(.*)(?=is)", flopoco_str).captures[1])
+            if curr_entity != curr_ct_entity
+                push!(flopoco_prev_entities, "$(curr_entity)")
+                flopoco_strs[i] = replace(flopoco_str, curr_entity => "$(curr_ct_entity)_$(curr_entity)")
+                curr_entity = "$(curr_ct_entity)_$(curr_entity)"
+            else
+                flopoco_strs[i] = replace(flopoco_str, [prev_entity => "$(curr_ct_entity)_$(prev_entity)" for prev_entity in flopoco_prev_entities]...)
+                curr_ct_ports = "port " * strip(match(r"(?<=port)((.|\n)*)(?=end entity)", flopoco_str).captures[1])
+                wl_ct[output_value] = parse(Int, strip(match(r"(?<=std_logic_vector\()((.)*)(?=downto)", split(curr_ct_ports, "\n")[1]).captures[1]))+1
+            end
+            push!(vhdl_strs, (flopoco_strs[i], curr_entity))
+        end
+        #DONE components
+        vhdl_str *= "\tcomponent $(curr_ct_entity) is\n"
+        vhdl_str *= "\t\t$(curr_ct_ports)\n"
+        vhdl_str *= "\tend component;\n\n"
+    end
+    for output_value in unique(odd.(abs.(output_values)))
+        #TODO include truncations
+        wl_adder_dsp = 0
+        if !done_with_dsp(addergraph, output_value)
+            addernode = get_output_addernode(addergraph, output_value)
+            wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
+        else
+            dsp_value = get_output_dsp(addergraph, output_value)
+            wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
+        end
+        output_name = signal_output_naming(output_value)
+        vhdl_str *= "signal $(output_name) : std_logic_vector($(wl_adder_dsp-1) downto 0);\n"
+        if wl_adder_dsp != wl_ct[output_value]
+            vhdl_str *= "signal $(output_name)_ct : std_logic_vector($(wl_ct[output_value]-1) downto 0);\n"
+        end
+    end
+
+    vhdl_str *= "\nbegin\n"
+    if !pipeline_inout
+        vhdl_str *= "\t$(signal_input_name) <= input_x;\n"
+        for output_value in output_values
+            shift = round(Int, log2(abs(output_value)/odd(abs(output_value))))
+            vhdl_str *= "\t$(output_naming_vhdl(output_value)) <= $(sign(output_value) == -1 ? "-" : "")$(signal_output_naming(odd(abs(output_value))))$(shift != 0 ? " & \"$(repeat("0", shift))\"" : "");\n"
+        end
+    else
+        # https://stackoverflow.com/questions/9989913/vhdl-how-to-use-clk-and-reset-in-process
+        # https://vhdlguru.blogspot.com/2011/01/what-is-pipelining-explanation-with.html
+        # Register to signals at clk
+        vhdl_str *= "\t-- Add registers\n"
+        vhdl_str *= "\tprocess(clk)\n"
+        vhdl_str *= "\tbegin\n"
+        vhdl_str *= "\t\tif(rising_edge(clk)) then\n"
+        vhdl_str *= "\t\t\t$(signal_input_name) <= input_x;\n"
+        for output_value in output_values
+            shift = round(Int, log2(abs(output_value)/odd(abs(output_value))))
+            vhdl_str *= "\t$(output_naming_vhdl(output_value)) <= $(sign(output_value) == -1 ? "-" : "")$(signal_output_naming(odd(abs(output_value))))$(shift != 0 ? " & \"$(repeat("0", shift))\"" : "");\n"
+        end
+        vhdl_str *= "\t\tend if;\n"
+        vhdl_str *= "\tend process;\n"
+    end
+
+    for output_value in unique(odd.(abs.(output_values)))
+        wl_adder_dsp = 0
+        if !done_with_dsp(addergraph, output_value)
+            addernode = get_output_addernode(addergraph, output_value)
+            wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
+        else
+            dsp_value = get_output_dsp(addergraph, output_value)
+            wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
+        end
+        curr_ct_entity = ct_entity_naming(output_value)
+        output_name = signal_output_naming(abs(output_value))
+        vhdl_str *= "\tct_$(output_value): $(curr_ct_entity)\n"
+        vhdl_str *= "\t\tport map (\n"
+        curr_bitstring = reverse(bitstring(output_value)[(end-wl_adder_dsp+1):end])
+        nb_ones = count(i->(i=='1'), curr_bitstring)
+        for i in 1:nb_ones
+            vhdl_str *= "\t\t\tX$(i-1) => $(signal_input_name),\n"
+        end
+        if wl_adder_dsp != wl_ct[output_value]
+            vhdl_str *= "\t\t\tR => $(signal_output_naming(output_value))_ct\n"
+        else
+            vhdl_str *= "\t\t\tR => $(signal_output_naming(output_value))\n"
+        end
+        vhdl_str *= "\t\t);\n"
+        if wl_adder_dsp != wl_ct[output_value]
+            vhdl_str *= "\t$(signal_output_naming(output_value)) <= $(signal_output_naming(output_value))_ct($(wl_adder_dsp-1) downto 0);\n"
+        end
+        vhdl_str *= "\n"
+    end
+
+    vhdl_str *= "end architecture;\n"
+
+    push!(vhdl_strs, (vhdl_str, entity_name))
+
+    return vhdl_strs
+end
