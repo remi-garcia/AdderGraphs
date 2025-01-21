@@ -139,12 +139,14 @@ function vhdl_output_compressortrees(
                         if occursin("port (R", curr_line)
                             first_marker = true
                             curr_ct_ports *= strip(curr_line)
+                            curr_ct_ports *= "\n"
                         end
                     else
                         if occursin("end entity;", curr_line)
                             break
                         end
                         curr_ct_ports *= curr_line
+                        curr_ct_ports *= "\n"
                     end
                 end
                 wl_ct[output_value] = parse(Int, strip(match(r"(?<=std_logic_vector\()((.)*)(?=downto)", split(curr_ct_ports, "\n")[1]).captures[1]))+1
