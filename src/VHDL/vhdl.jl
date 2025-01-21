@@ -19,6 +19,7 @@ function write_vhdl(
         entity_name::String="",
         verbose::Bool=false,
         with_tests::Bool=true,
+        with_inputs_outputs::Bool=true,
         with_simulation::Bool=true,
         single_file::Bool=false,
         target_frequency::Int=200,
@@ -91,7 +92,9 @@ function write_vhdl(
         open(vhdl_test_filename, "w") do writefile
             write(writefile, vhdl_str)
         end
-        write_tests(addergraph; kwargs...)
+        if with_inputs_outputs
+            write_tests(addergraph; kwargs...)
+        end
     end
     if with_simulation
         vhdl_str = ""
