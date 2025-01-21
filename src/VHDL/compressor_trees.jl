@@ -93,7 +93,7 @@ function vhdl_output_compressortrees(
     signal_input_wl = wordlength_in
     vhdl_str *= "signal $(signal_input_name) : std_logic_vector($(signal_input_wl-1) downto 0);\n\n"
 
-    flopoco_filename = "tmp.vhdl"
+    flopoco_filename = tempname()
     wl_ct = Dict{Int, Int}()
     for output_value in unique(odd.(abs.(output_values)))
         #DONE flopoco gen cmd
@@ -117,6 +117,7 @@ function vhdl_output_compressortrees(
         splitpoint = "end architecture;"
         flopoco_strs = split(read(flopoco_filename, String), splitpoint) .* splitpoint
         pop!(flopoco_strs)
+        rm(flopoco_filename)
 
         #DONE Read entities and rename them (replace in strings)
         flopoco_prev_entities = Vector{String}()
