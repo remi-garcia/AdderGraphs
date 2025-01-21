@@ -68,6 +68,7 @@ function write_cmd(
             end
         end
     end
+    cmd_run_vivado *= "\n"
 
     return cmd_run_vivado
 end
