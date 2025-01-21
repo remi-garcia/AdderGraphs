@@ -7,6 +7,7 @@ function vhdl_output_compressortrees(
         verbose::Bool=false,
         entity_name::String="",
         twos_complement::Bool=true,
+        flopoco_silent::Bool=true,
         kwargs...
     )
     if pipeline_inout
@@ -111,7 +112,12 @@ function vhdl_output_compressortrees(
         curr_ct_entity = ct_entity_naming(output_value)
         flopoco_cmd = "flopoco useTargetOpt=1 FixMultiAdder signedIn=$(twos_complement ? "1" : "0") n=$(nb_ones) msbIn=$(join(repeat([wordlength_in-1], nb_ones), ":")) lsbIn=$(join(repeat([0], nb_ones), ":")) shifts=$(join(curr_shifts, ":")) generateFigures=0 compression=optimal name=$(curr_ct_entity) outputFile=$(flopoco_filename)"
         argv = Vector{String}(string.(split(flopoco_cmd)))
-        run(`$(argv)`)
+        if flopoco_silent
+            pout = Pipe()
+            run(pipeline(`$(argv)`; stdout = pout))
+        else
+            run(`$(argv)`)
+        end
 
         #DONE split file into multiple strings
         splitpoint = "end architecture;"
