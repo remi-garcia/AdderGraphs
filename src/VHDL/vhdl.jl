@@ -120,7 +120,6 @@ function write_vhdl(
             with_tests=with_tests,
             with_simulation=with_simulation,
             target_frequency=target_frequency,
-            ag_filename=ag_filename,
             kwargs...
         )
         open(cmd_filename, "a") do writefile

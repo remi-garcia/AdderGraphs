@@ -12,8 +12,6 @@ function write_cmd(
         with_tests::Bool,
         with_simulation::Bool,
         target_frequency::Int,
-        ag_filename::String,
-        cmd_ag_filename::String="",
         cmd_tests::Bool=false,
         cmd_simulation::Bool=false,
         cmd_part::String="xc7k70tfbv484-3",
@@ -28,9 +26,6 @@ function write_cmd(
     )
     if isempty(cmd_vhdl_filename)
         cmd_vhdl_filename = vhdl_filename
-    end
-    if isempty(cmd_ag_filename)
-        cmd_ag_filename = ag_filename
     end
     if isempty(cmd_vhdl_test_filename)
         cmd_vhdl_test_filename = vhdl_test_filename
@@ -70,7 +65,7 @@ function write_cmd(
     if with_simulation
         cmd_run_vivado *= " -s $(cmd_vhdl_simulation_filename)"
     end
-    cmd_run_vivado *= " -vhdl $(cmd_ag_filename)"
+    cmd_run_vivado *= " -vhdl $(cmd_vhdl_filename)"
     if length(vhdl_strs) > 1
         for (vhdl_str, curr_entity_name) in vhdl_strs[1:end-1]
             cmd_run_vivado *= " -avhdl $(base_vhdl_filename)_$(curr_entity_name).vhdl"
