@@ -114,7 +114,10 @@ function vhdl_output_compressortrees(
         argv = Vector{String}(string.(split(flopoco_cmd)))
         if flopoco_silent
             pout = Pipe()
-            run(pipeline(`$(argv)`; stdout = pout))
+            perr = Pipe()
+            run(pipeline(`$(argv)`; stdout = pout, stderr = perr))
+            close(pout.in)
+            close(perr.in)
         else
             run(`$(argv)`)
         end
