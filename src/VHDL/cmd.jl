@@ -65,7 +65,7 @@ function write_cmd(
     if with_simulation
         cmd_run_vivado *= " -s $(cmd_vhdl_simulation_filename)"
     end
-    cmd_run_vivado *= " -vhdl $(cmd_vhdl_filename)"
+    cmd_run_vivado *= " -vhdl $(base_vhdl_filename)_$(vhdl_strs[end][2]).vhdl"
     if length(vhdl_strs) > 1
         for (vhdl_str, curr_entity_name) in vhdl_strs[1:end-1]
             cmd_run_vivado *= " -avhdl $(base_vhdl_filename)_$(curr_entity_name).vhdl"
