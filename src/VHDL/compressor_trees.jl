@@ -134,7 +134,7 @@ function vhdl_output_compressortrees(
                 #curr_ct_ports = "port " * strip(match(r"(?<=port)((.|\n)*)(?=end entity)", flopoco_str).captures[1])
                 curr_ct_ports = ""
                 first_marker = false
-                for curr_line in split(flopoco_strs[i] "\n")
+                for curr_line in split(flopoco_strs[i], "\n")
                     if !first_marker
                         if occursin("port (R", curr_line)
                             first_marker = true
