@@ -130,7 +130,23 @@ function vhdl_output_compressortrees(
                 curr_entity = "$(curr_ct_entity)_$(curr_entity)"
             else
                 flopoco_strs[i] = replace(flopoco_str, [prev_entity => "$(curr_ct_entity)_$(prev_entity)" for prev_entity in flopoco_prev_entities]...)
-                curr_ct_ports = "port " * strip(match(r"(?<=port)((.|\n)*)(?=end entity)", flopoco_str).captures[1])
+                # The following "works" but leads to the following error: ERROR: PCRE.exec error: JIT stack limit reached
+                #curr_ct_ports = "port " * strip(match(r"(?<=port)((.|\n)*)(?=end entity)", flopoco_str).captures[1])
+                curr_ct_ports = ""
+                first_marker = false
+                for curr_line in readlines(flopoco_strs[i])
+                    if !first_marker
+                        if occursin("port (R", curr_line)
+                            first_marker = true
+                            curr_ct_ports *= strip(curr_line)
+                        end
+                    else
+                        if occursin("end entity;", curr_line)
+                            break
+                        end
+                        curr_ct_ports *= curr_line
+                    end
+                end
                 wl_ct[output_value] = parse(Int, strip(match(r"(?<=std_logic_vector\()((.)*)(?=downto)", split(curr_ct_ports, "\n")[1]).captures[1]))+1
             end
             push!(vhdl_strs, (flopoco_strs[i], curr_entity))
