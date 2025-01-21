@@ -4,6 +4,9 @@ function write_cmd(
         vhdl_filename::String,
         vhdl_test_filename::String,
         vhdl_simulation_filename::String,
+        cmd_vhdl_filename::String="",
+        cmd_vhdl_test_filename::String="",
+        cmd_vhdl_simulation_filename::String="",
         use_compressor_trees::Bool,
         verbose::Bool,
         with_tests::Bool,
@@ -22,13 +25,22 @@ function write_cmd(
         cmd_ooc_entities::Bool=false,
         kwargs...
     )
+    if isempty(cmd_vhdl_filename)
+        cmd_vhdl_filename = vhdl_filename
+    end
+    if isempty(cmd_vhdl_test_filename)
+        cmd_vhdl_test_filename = vhdl_test_filename
+    end
+    if isempty(cmd_vhdl_simulation_filename)
+        cmd_vhdl_simulation_filename = vhdl_simulation_filename
+    end
     if cmd_tests
         with_tests = true
     end
     if cmd_simulation
         with_simulation = true
     end
-    base_vhdl_filename = string(vhdl_filename[1:findlast(==('.'), vhdl_filename)-1])
+    base_vhdl_filename = string(cmd_vhdl_filename[1:findlast(==('.'), cmd_vhdl_filename)-1])
     cmd_run_vivado = "run_vivado.sh -v --part $(cmd_part) -f $(target_frequency)"
     if !isempty(cmd_project)
         cmd_run_vivado *= " -p=$(cmd_project)"
@@ -49,10 +61,10 @@ function write_cmd(
         cmd_run_vivado *= " -t"
     end
     if with_tests
-        cmd_run_vivado *= " -bs $(vhdl_test_filename)"
+        cmd_run_vivado *= " -bs $(cmd_vhdl_test_filename)"
     end
     if with_simulation
-        cmd_run_vivado *= " -s $(vhdl_simulation_filename)"
+        cmd_run_vivado *= " -s $(cmd_vhdl_simulation_filename)"
     end
     cmd_run_vivado *= " -vhdl $(ag_filename)"
     if length(vhdl_strs) > 1
