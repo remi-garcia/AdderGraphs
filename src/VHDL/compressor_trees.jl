@@ -119,6 +119,7 @@ function vhdl_output_compressortrees(
             close(pout.in)
             close(perr.in)
         else
+            println(flopoco_cmd)
             run(`$(argv)`)
         end
 
