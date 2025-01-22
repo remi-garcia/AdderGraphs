@@ -7,9 +7,11 @@ function vhdl_output_compressortrees(
         verbose::Bool=false,
         entity_name::String="",
         twos_complement::Bool=true,
+        flopoco_base_vhdl_folder::String="",
         flopoco_silent::Bool=true,
         kwargs...
     )
+    flopoco_base_vhdl_folder = rstrip(flopoco_base_vhdl_folder, '/')
     if pipeline_inout
         with_clk = true
     end
@@ -97,30 +99,38 @@ function vhdl_output_compressortrees(
     flopoco_filename = tempname()
     wl_ct = Dict{Int, Int}()
     for output_value in unique(odd.(abs.(output_values)))
-        #DONE flopoco gen cmd
-        wl_adder_dsp = 0
-        if !done_with_dsp(addergraph, output_value)
-            addernode = get_output_addernode(addergraph, output_value)
-            wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
-        else
-            dsp_value = get_output_dsp(addergraph, output_value)
-            wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
-        end
-        curr_bitstring = reverse(bitstring(output_value)[(end-wl_adder_dsp+1):end])
-        nb_ones = count(i->(i=='1'), curr_bitstring)
-        curr_shifts = [i[1]-1 for i in collect.(findall(r"1", curr_bitstring))]
         curr_ct_entity = ct_entity_naming(output_value)
-        flopoco_cmd = "flopoco useTargetOpt=1 FixMultiAdder signedIn=$(twos_complement ? "1" : "0") n=$(nb_ones) msbIn=$(join(repeat([wordlength_in-1], nb_ones), ":")) lsbIn=$(join(repeat([0], nb_ones), ":")) shifts=$(join(curr_shifts, ":")) generateFigures=0 compression=optimal name=$(curr_ct_entity) outputFile=$(flopoco_filename)"
-        argv = Vector{String}(string.(split(flopoco_cmd)))
-        if flopoco_silent
-            pout = Pipe()
-            perr = Pipe()
-            run(pipeline(`$(argv)`; stdout = pout, stderr = perr))
-            close(pout.in)
-            close(perr.in)
+        if isfile("$(flopoco_base_vhdl_folder)/$(output_value).vhdl")
+            cp("$(flopoco_base_vhdl_folder)/$(output_value).vhdl", flopoco_filename; force=true)
         else
-            println(flopoco_cmd)
-            run(`$(argv)`)
+            #DONE flopoco gen cmd
+            wl_adder_dsp = 0
+            if !done_with_dsp(addergraph, output_value)
+                addernode = get_output_addernode(addergraph, output_value)
+                wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
+            else
+                dsp_value = get_output_dsp(addergraph, output_value)
+                wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
+            end
+            curr_bitstring = reverse(bitstring(output_value)[(end-wl_adder_dsp+1):end])
+            nb_ones = count(i->(i=='1'), curr_bitstring)
+            curr_shifts = [i[1]-1 for i in collect.(findall(r"1", curr_bitstring))]
+            flopoco_cmd = "flopoco useTargetOpt=1 FixMultiAdder signedIn=$(twos_complement ? "1" : "0") n=$(nb_ones) msbIn=$(join(repeat([wordlength_in-1], nb_ones), ":")) lsbIn=$(join(repeat([0], nb_ones), ":")) shifts=$(join(curr_shifts, ":")) generateFigures=0 compression=optimal name=$(curr_ct_entity) outputFile=$(flopoco_filename)"
+            argv = Vector{String}(string.(split(flopoco_cmd)))
+            if flopoco_silent
+                pout = Pipe()
+                perr = Pipe()
+                run(pipeline(`$(argv)`; stdout = pout, stderr = perr))
+                close(pout.in)
+                close(perr.in)
+            else
+                println(flopoco_cmd)
+                run(`$(argv)`)
+            end
+            if isdir(flopoco_base_vhdl_folder)
+                @assert !isfile("$(flopoco_base_vhdl_folder)/$(output_value).vhdl")
+                cp(flopoco_filename, "$(flopoco_base_vhdl_folder)/$(output_value).vhdl")
+            else
         end
 
         #DONE split file into multiple strings
@@ -132,38 +142,40 @@ function vhdl_output_compressortrees(
         #DONE Read entities and rename them (replace in strings)
         flopoco_prev_entities = Vector{String}()
         curr_ct_ports = ""
-        for i in 1:length(flopoco_strs)
+        for i in 1:(length(flopoco_strs)-1)
             flopoco_str = flopoco_strs[i]
             curr_entity = strip(match(r"(?<=entity)(.*)(?=is)", flopoco_str).captures[1])
-            if curr_entity != curr_ct_entity
-                push!(flopoco_prev_entities, "$(curr_entity)")
-                flopoco_strs[i] = replace(flopoco_str, curr_entity => "$(curr_ct_entity)_$(curr_entity)")
-                curr_entity = "$(curr_ct_entity)_$(curr_entity)"
-            else
-                flopoco_strs[i] = replace(flopoco_str, [prev_entity => "$(curr_ct_entity)_$(prev_entity)" for prev_entity in flopoco_prev_entities]...)
-                # The following "works" but leads to the following error: ERROR: PCRE.exec error: JIT stack limit reached
-                #curr_ct_ports = "port " * strip(match(r"(?<=port)((.|\n)*)(?=end entity)", flopoco_str).captures[1])
-                curr_ct_ports = ""
-                first_marker = false
-                for curr_line in split(flopoco_strs[i], "\n")
-                    if !first_marker
-                        if occursin("port (R", curr_line)
-                            first_marker = true
-                            curr_ct_ports *= strip(curr_line)
-                            curr_ct_ports *= "\n"
-                        end
-                    else
-                        if occursin("end entity;", curr_line)
-                            break
-                        end
-                        curr_ct_ports *= curr_line
-                        curr_ct_ports *= "\n"
-                    end
-                end
-                wl_ct[output_value] = parse(Int, strip(match(r"(?<=std_logic_vector\()((.)*)(?=downto)", split(curr_ct_ports, "\n")[1]).captures[1]))+1
-            end
+            push!(flopoco_prev_entities, "$(curr_entity)")
+            flopoco_strs[i] = replace(flopoco_str, curr_entity => "$(curr_ct_entity)_$(curr_entity)")
+            curr_entity = "$(curr_ct_entity)_$(curr_entity)"
             push!(vhdl_strs, (flopoco_strs[i], curr_entity))
         end
+        flopoco_str = flopoco_strs[end]
+        curr_entity = strip(match(r"(?<=entity)(.*)(?=is)", flopoco_str).captures[1])
+        flopoco_strs[end] = replace(flopoco_strs[end], curr_entity => curr_ct_entity)
+        flopoco_strs[end] = replace(flopoco_str, [prev_entity => "$(curr_ct_entity)_$(prev_entity)" for prev_entity in flopoco_prev_entities]...)
+        # The following "works" but leads to the following error: ERROR: PCRE.exec error: JIT stack limit reached
+        #curr_ct_ports = "port " * strip(match(r"(?<=port)((.|\n)*)(?=end entity)", flopoco_str).captures[1])
+        curr_ct_ports = ""
+        first_marker = false
+        for curr_line in split(flopoco_strs[end], "\n")
+            if !first_marker
+                if occursin("port (R", curr_line)
+                    first_marker = true
+                    curr_ct_ports *= strip(curr_line)
+                    curr_ct_ports *= "\n"
+                end
+            else
+                if occursin("end entity;", curr_line)
+                    break
+                end
+                curr_ct_ports *= curr_line
+                curr_ct_ports *= "\n"
+            end
+        end
+        wl_ct[output_value] = parse(Int, strip(match(r"(?<=std_logic_vector\()((.)*)(?=downto)", split(curr_ct_ports, "\n")[1]).captures[1]))+1
+        push!(vhdl_strs, (flopoco_strs[end], curr_entity))
+
         #DONE components
         vhdl_str *= "\tcomponent $(curr_ct_entity) is\n"
         vhdl_str *= "\t\t$(curr_ct_ports)\n"
