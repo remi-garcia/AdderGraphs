@@ -130,7 +130,7 @@ function vhdl_output_compressortrees(
             if isdir(flopoco_base_vhdl_folder)
                 @assert !isfile("$(flopoco_base_vhdl_folder)/$(output_value).vhdl")
                 cp(flopoco_filename, "$(flopoco_base_vhdl_folder)/$(output_value).vhdl")
-            else
+            end
         end
 
         #DONE split file into multiple strings
