@@ -6,9 +6,11 @@ function vhdl_output_tables(
         target_frequency::Int,
         verbose::Bool=false,
         entity_name::String="",
+        luts_base_vhdl_folder::String="",
         twos_complement::Bool=true,
         kwargs...
     )
+    luts_base_vhdl_folder = rstrip(luts_base_vhdl_folder, '/')
     if pipeline_inout
         with_clk = true
     end
@@ -101,10 +103,7 @@ function vhdl_output_tables(
         if twos_complement
             wlout = 1 + round(Int, log2(abs(abs(output_value) * (-(2^(wordlength_in-1))))), RoundUp)
         end
-        lut_outputs = Vector{Vector{Bool}}([reverse(digits(abs(output_value)*i, base=2, pad=wlout))[1:wlout] for i in 0:((2^wordlength_in)-1)])
-        if twos_complement
-            lut_outputs = Vector{Vector{Bool}}([[parse(Int, curr_digit) for curr_digit in bitstring(abs(output_value)*i)][(end-wlout+1):end] for i in ((-2^(wordlength_in-1))):((2^(wordlength_in-1))-1)])
-        end
+
         wl_adder_dsp = 0
         if !done_with_dsp(addergraph, output_value)
             addernode = get_output_addernode(addergraph, output_value)
@@ -118,14 +117,33 @@ function vhdl_output_tables(
         \n\ttype lut_$(output_name) is array ($(twos_complement ? "integer" : "natural") range $(twos_complement ? -2^(wordlength_in-1) : 0) to $(twos_complement ? 2^(wordlength_in-1)-1 : 2^(wordlength_in)-1)) of std_logic_vector($(wl_adder_dsp-1) downto 0);
         \tsignal bitcount_$(output_name) : lut_$(output_name) := (
         """
-        vhdl_str *= "\t\t"
-        for i in 1:(2^(wordlength_in)-1)
-            vhdl_str *= "\"$(join(Int.(lut_outputs[i])))\", "
-            if mod(i, 4) == 0
-                vhdl_str *= "\n\t\t"
+
+        lut_outputs = Vector{Vector{Bool}}()
+        lut_outputs_str = ""
+        if isfile("$(luts_base_vhdl_folder)/$(output_value).txt")
+            lut_outputs_str = read("$(luts_base_vhdl_folder)/$(output_value).txt", String)
+        else
+            if twos_complement
+                lut_outputs = Vector{Vector{Bool}}([[parse(Int, curr_digit) for curr_digit in bitstring(abs(output_value)*i)][(end-wlout+1):end] for i in ((-2^(wordlength_in-1))):((2^(wordlength_in-1))-1)])
+            else
+                lut_outputs = Vector{Vector{Bool}}([reverse(digits(abs(output_value)*i, base=2, pad=wlout))[1:wlout] for i in 0:((2^wordlength_in)-1)])
+            end
+            lut_outputs_str *= "\t\t"
+            for i in 1:(2^(wordlength_in)-1)
+                lut_outputs_str *= "\"$(join(Int.(lut_outputs[i])))\", "
+                if mod(i, 4) == 0
+                    lut_outputs_str *= "\n\t\t"
+                end
+            end
+            lut_outputs_str *= "\"$(join(Int.(lut_outputs[end])))\"\n"
+            if isdir(luts_base_vhdl_folder)
+                @assert !isfile("$(luts_base_vhdl_folder)/$(output_value).txt")
+                open("$(luts_base_vhdl_folder)/$(output_value).txt", "w") do writefile
+                    write(writefile, lut_outputs_str)
+                end
             end
         end
-        vhdl_str *= "\"$(join(Int.(lut_outputs[end])))\"\n"
+        vhdl_str *= lut_outputs_str
         vhdl_str *= "\t);\n"
         vhdl_str *= "attribute rom_style of bitcount_$(output_name) : signal is \"distributed\";\n"
 
