@@ -9,6 +9,7 @@ function vhdl_output_compressortrees(
         twos_complement::Bool=true,
         flopoco_base_vhdl_folder::String="",
         flopoco_silent::Bool=true,
+        flopoco_timeout::Int=600,
         kwargs...
     )
     flopoco_base_vhdl_folder = rstrip(flopoco_base_vhdl_folder, '/')
@@ -115,7 +116,7 @@ function vhdl_output_compressortrees(
             curr_bitstring = reverse(bitstring(output_value)[(end-wl_adder_dsp+1):end])
             nb_ones = count(i->(i=='1'), curr_bitstring)
             curr_shifts = [i[1]-1 for i in collect.(findall(r"1", curr_bitstring))]
-            flopoco_cmd = "flopoco useTargetOpt=1 FixMultiAdder signedIn=$(twos_complement ? "1" : "0") n=$(nb_ones) msbIn=$(join(repeat([wordlength_in-1], nb_ones), ":")) lsbIn=$(join(repeat([0], nb_ones), ":")) shifts=$(join(curr_shifts, ":")) generateFigures=0 compression=optimal name=$(curr_ct_entity) outputFile=$(flopoco_filename)"
+            flopoco_cmd = "flopoco useTargetOpt=1 FixMultiAdder signedIn=$(twos_complement ? "1" : "0") n=$(nb_ones) msbIn=$(join(repeat([wordlength_in-1], nb_ones), ":")) lsbIn=$(join(repeat([0], nb_ones), ":")) shifts=$(join(curr_shifts, ":")) generateFigures=0 compression=optimal ilpTimeout=$(flopoco_timeout) name=$(curr_ct_entity) outputFile=$(flopoco_filename)"
             argv = Vector{String}(string.(split(flopoco_cmd)))
             if flopoco_silent
                 pout = Pipe()
