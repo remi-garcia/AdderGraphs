@@ -180,7 +180,7 @@ function hls_addergraph_generation(
     end
 
     if isempty(addergraph_function_name)
-        addergraph_function_name = function_naming(addergraph_function_name)
+        addergraph_function_name = function_naming(addergraph)
     end
 
     # Function
