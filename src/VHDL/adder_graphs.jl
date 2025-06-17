@@ -642,5 +642,5 @@ function vhdl_addergraph_generation(
 
     push!(vhdl_strs, (vhdl_str, entity_name))
 
-return entity_name, vhdl_strs, port_str
+    return entity_name, vhdl_strs, port_str
 end
