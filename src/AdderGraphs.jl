@@ -66,7 +66,7 @@ include("registers.jl")
 include("addernode.jl")
 include("addergraph.jl")
 include("VHDL/vhdl.jl")
-include("hls.jl")
+include("HLS/hls.jl")
 include("hcub.jl")
 
 # Utils
