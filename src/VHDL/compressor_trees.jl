@@ -127,7 +127,8 @@ function vhdl_output_compressortrees(
             # curr_shifts = [i[1]-1 for i in collect.(findall(r"1", curr_bitstring))]
             curr_shifts = [i[1]-1 for i in collect.(findall(!iszero, curr_bitstring))]
             curr_signs = filter(!iszero, sign.(curr_bitstring))
-            flopoco_cmd = "flopoco useTargetOpt=1 FixMultiAdder signedIn=$(twos_complement ? "1" : "0") n=$(nb_ones) msbIn=$(join(repeat([wordlength_in-1], nb_ones), ":")) lsbIn=$(join(repeat([0], nb_ones), ":")) shifts=$(join(curr_shifts, ":")) addSub=$(join([curr_sign == 1 ? "+" : "-" for curr_sign in curr_signs], ":")) generateFigures=0 compression=optimal ilpTimeout=$(flopoco_timeout) name=$(curr_ct_entity) outputFile=$(flopoco_filename)"
+            # flopoco_cmd = "flopoco useTargetOpt=1 FixMultiAdder signedIn=$(twos_complement ? "1" : "0") n=$(nb_ones) msbIn=$(join(repeat([wordlength_in-1], nb_ones), ":")) lsbIn=$(join(repeat([0], nb_ones), ":")) shifts=$(join(curr_shifts, ":")) addSub=$(join([curr_sign == 1 ? "+" : "-" for curr_sign in curr_signs], ":")) generateFigures=0 compression=optimal ilpTimeout=$(flopoco_timeout) name=$(curr_ct_entity) outputFile=$(flopoco_filename)"
+            flopoco_cmd = "flopoco useTargetOpt=1 FixMultiAdder signedIn=$(twos_complement ? "1" : "0") n=$(nb_ones) msbIn=$(join(repeat([wordlength_in-1], nb_ones), ":")) lsbIn=$(join(repeat([0], nb_ones), ":")) shifts=$(join(curr_shifts, ":")) addSub=$(join([curr_sign == 1 ? "+" : "-" for curr_sign in curr_signs], ":")) generateFigures=0 name=$(curr_ct_entity) outputFile=$(flopoco_filename)"
             argv = Vector{String}(string.(split(flopoco_cmd)))
             if flopoco_silent
                 pout = Pipe()
