@@ -10,6 +10,7 @@ function vhdl_output_compressortrees(
         flopoco_base_vhdl_folder::String="",
         flopoco_silent::Bool=true,
         flopoco_timeout::Int=600,
+        use_csd::Bool=false,
         kwargs...
     )
     flopoco_base_vhdl_folder = rstrip(flopoco_base_vhdl_folder, '/')
@@ -105,18 +106,28 @@ function vhdl_output_compressortrees(
             cp("$(flopoco_base_vhdl_folder)/$(output_value).vhdl", flopoco_filename; force=true)
         else
             #DONE flopoco gen cmd
-            wl_adder_dsp = 0
-            if !done_with_dsp(addergraph, output_value)
-                addernode = get_output_addernode(addergraph, output_value)
-                wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
+            # wl_adder_dsp = 0
+            # if !done_with_dsp(addergraph, output_value)
+            #     addernode = get_output_addernode(addergraph, output_value)
+            #     wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
+            # else
+            #     dsp_value = get_output_dsp(addergraph, output_value)
+            #     wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
+            # end
+            # curr_bitstring = reverse(bitstring(output_value)[(end-wl_adder_dsp+1):end])
+            curr_bitstring = Vector{Int}()
+            if use_csd
+                curr_bitstring = reverse(int2csd(output_value))
             else
-                dsp_value = get_output_dsp(addergraph, output_value)
-                wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
+                curr_bitstring = reverse(int2bin(output_value))
             end
-            curr_bitstring = reverse(bitstring(output_value)[(end-wl_adder_dsp+1):end])
-            nb_ones = count(i->(i=='1'), curr_bitstring)
-            curr_shifts = [i[1]-1 for i in collect.(findall(r"1", curr_bitstring))]
-            flopoco_cmd = "flopoco useTargetOpt=1 FixMultiAdder signedIn=$(twos_complement ? "1" : "0") n=$(nb_ones) msbIn=$(join(repeat([wordlength_in-1], nb_ones), ":")) lsbIn=$(join(repeat([0], nb_ones), ":")) shifts=$(join(curr_shifts, ":")) generateFigures=0 compression=optimal ilpTimeout=$(flopoco_timeout) name=$(curr_ct_entity) outputFile=$(flopoco_filename)"
+            # @assert length(curr_bitstring) == wl_adder_dsp
+            # nb_ones = count(i->(i=='1'), curr_bitstring)
+            nb_ones = length(curr_bitstring)-count_zeros(curr_bitstring)
+            # curr_shifts = [i[1]-1 for i in collect.(findall(r"1", curr_bitstring))]
+            curr_shifts = [i[1]-1 for i in collect.(findall(!iszero, curr_bitstring))]
+            curr_signs = filter(!iszero, sign.(curr_bitstring))
+            flopoco_cmd = "flopoco useTargetOpt=1 FixMultiAdder signedIn=$(twos_complement ? "1" : "0") n=$(nb_ones) msbIn=$(join(repeat([wordlength_in-1], nb_ones), ":")) lsbIn=$(join(repeat([0], nb_ones), ":")) shifts=$(join(curr_shifts, ":")) addSub=$(join([curr_sign == 1 ? "+" : "-" for curr_sign in curr_signs], ":")) generateFigures=0 compression=optimal ilpTimeout=$(flopoco_timeout) name=$(curr_ct_entity) outputFile=$(flopoco_filename)"
             argv = Vector{String}(string.(split(flopoco_cmd)))
             if flopoco_silent
                 pout = Pipe()
@@ -236,8 +247,15 @@ function vhdl_output_compressortrees(
         output_name = signal_output_naming(abs(output_value))
         vhdl_str *= "\tct_$(output_value): $(curr_ct_entity)\n"
         vhdl_str *= "\t\tport map (\n"
-        curr_bitstring = reverse(bitstring(output_value)[(end-wl_adder_dsp+1):end])
-        nb_ones = count(i->(i=='1'), curr_bitstring)
+        # curr_bitstring = reverse(bitstring(output_value)[(end-wl_adder_dsp+1):end])
+        # nb_ones = count(i->(i=='1'), curr_bitstring)
+        curr_bitstring = Vector{Int}()
+        if use_csd
+            curr_bitstring = reverse(int2csd(output_value))
+        else
+            curr_bitstring = reverse(int2bin(output_value))
+        end
+        nb_ones = length(curr_bitstring)-count_zeros(curr_bitstring)
         for i in 1:nb_ones
             vhdl_str *= "\t\t\tX$(i-1) => $(signal_input_name),\n"
         end
