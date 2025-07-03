@@ -123,7 +123,7 @@ function vhdl_output_compressortrees(
             end
             # @assert length(curr_bitstring) == wl_adder_dsp
             # nb_ones = count(i->(i=='1'), curr_bitstring)
-            nb_ones = length(curr_bitstring)-count_zeros(curr_bitstring)
+            nb_ones = length(curr_bitstring)-count(iszero, curr_bitstring)
             # curr_shifts = [i[1]-1 for i in collect.(findall(r"1", curr_bitstring))]
             curr_shifts = [i[1]-1 for i in collect.(findall(!iszero, curr_bitstring))]
             curr_signs = filter(!iszero, sign.(curr_bitstring))
@@ -255,7 +255,7 @@ function vhdl_output_compressortrees(
         else
             curr_bitstring = reverse(int2bin(output_value))
         end
-        nb_ones = length(curr_bitstring)-count_zeros(curr_bitstring)
+        nb_ones = length(curr_bitstring)-count(iszero, curr_bitstring)
         for i in 1:nb_ones
             vhdl_str *= "\t\t\tX$(i-1) => $(signal_input_name),\n"
         end
