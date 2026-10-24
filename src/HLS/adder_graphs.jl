@@ -72,10 +72,10 @@ function adder_generation_hls(
 
     # Resize for shifts
     if input_shifts[1] > 0
-        hls_str *= "\t$(variable_left_shifted_name) = $(variable_left_name) << $(input_shifts[1]);\n"
+        hls_str *= "\t$(variable_left_shifted_name) = ap_$(twos_complement ? "" : "u")int<$(variable_left_shifted_wl)>($(variable_left_name)) << $(input_shifts[1]);\n"
     end
     if input_shifts[2] > 0
-        hls_str *= "\t$(variable_right_shifted_name) = $(variable_right_name) << $(input_shifts[2]);\n"
+        hls_str *= "\t$(variable_right_shifted_name) = ap_$(twos_complement ? "" : "u")int<$(variable_right_shifted_wl)>($(variable_right_name)) << $(input_shifts[2]);\n"
     end
 
     hls_str *= "\t$(variable_output_name) = "
@@ -213,13 +213,15 @@ function hls_addergraph_generation(
         if !done_with_dsp(addergraph, output_value)
             addernode = get_output_addernode(addergraph, output_value)
             _, _, variable_output_name = variable_naming(addernode)
+            wl_adder_dsp = get_adder_wordlength(addernode, wordlength_in)
         else
             dsp_value = get_output_dsp(addergraph, output_value)
             variable_output_name = variable_naming(dsp_value)
+            wl_adder_dsp = get_dsp_wordlength(dsp_value, wordlength_in)
         end
         output_name = variable_output_naming(output_value)
         shift = round(Int, log2(abs(output_value)/odd(abs(output_value))))
-        hls_str *= "\t$(output_name) = $(variable_output_name)$(shift > 0 ? " << $(shift)" : "");\n"
+        hls_str *= "\t$(output_name) = $(shift > 0 ? "ap_$(twos_complement ? "" : "u")int<$(wl_adder_dsp+shift)>($(variable_output_name)) << $(shift)" : variable_output_name);\n"
         ag_output_name = output_naming_hls(output_value)
         hls_str *= "\t$(ag_output_name) = $(output_value < 0 ? "-" : "")$(output_name);\n"
     end
